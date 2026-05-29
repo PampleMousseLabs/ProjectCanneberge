@@ -20,6 +20,8 @@ Public Sub Run_ETL_Pipeline()
 
     PML_IS_RUNNING = True
 
+    ' Speed optimizations
+    Application.Calculation = xlCalculationManual
     Application.ScreenUpdating = False
     Application.EnableEvents = False
     Application.StatusBar = "PML ETL: RUNNING (ASYNC MODE)"
@@ -34,6 +36,7 @@ Public Sub Run_ETL_Pipeline()
     RunQuery "ALL_CFS"
     RunQuery "ALL_Ratio"
     RunQuery "ALL_Beta"
+    RunQuery "ALL_ForwardEst"
 
     LogEvent "STAGE 1 TRIGGERED (NO WAIT)"
 
@@ -47,6 +50,7 @@ Public Sub Run_ETL_Pipeline()
     '=====================================================
     ' EXIT IMMEDIATELY (DO NOT WAIT FOR PQ)
     '=====================================================
+    Application.Calculation = xlCalculationAutomatic
     Application.StatusBar = False
     Application.ScreenUpdating = True
     Application.EnableEvents = True
@@ -61,6 +65,7 @@ ErrHandler:
 
     LogEvent "ETL ERROR: " & Err.Description
 
+    Application.Calculation = xlCalculationAutomatic
     Application.StatusBar = False
     Application.ScreenUpdating = True
     Application.EnableEvents = True
