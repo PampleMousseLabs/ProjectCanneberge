@@ -1,4 +1,4 @@
-shared ALL_FINANCIALS = let
+let
     // =========================================================
     // 1. TICKERS (BUFFERED)
     // =========================================================
@@ -17,17 +17,18 @@ shared ALL_FINANCIALS = let
         List.Combine(
             List.Transform(Tickers, (t) =>
                 List.RemoveNulls({
-                    try fnIS(t) otherwise null,
-                    try fnBS(t) otherwise null,
-                    try fnCFS(t) otherwise null,
-                    try fnRatio(t) otherwise null,
-                    try fnBeta(t) otherwise null
+                    try Table.Buffer(fnIS(t)) otherwise null,
+                    try Table.Buffer(fnBS(t)) otherwise null,
+                    try Table.Buffer(fnCFS(t)) otherwise null,
+                    try Table.Buffer(fnRatio(t)) otherwise null,
+                    try Table.Buffer(fnBeta(t)) otherwise null,
+                    try Table.Buffer(fnForwardEst(t)) otherwise null
                 })
             )
         ),
 
     // =========================================================
-    // 3. COMBINE TABLES (UNCHANGED MODEL)
+    // 3. COMBINE TABLES
     // =========================================================
     CombinedTable =
         Table.Combine(CombinedList),
@@ -40,22 +41,27 @@ shared ALL_FINANCIALS = let
             CombinedTable,
             List.Intersect(
                 {
-                    Table.ColumnNames(CombinedTable),
                     {
+                        "Key",
                         "Ticker",
                         "Line Item",
                         "TTM",
                         "Current",
-                        "2025",
-                        "2024",
-                        "2023",
-                        "2022",
                         "2021",
-                        "Key"
-                    }
+                        "2022",
+                        "2023",
+                        "2024",
+                        "2025",
+                        "2026",
+                        "2027",
+                        "2028",
+                        "2029",
+                        "2030"
+                    },
+                    Table.ColumnNames(CombinedTable)
                 }
             ),
             MissingField.Ignore
         )
 in
-    Cleaned;
+    Cleaned
