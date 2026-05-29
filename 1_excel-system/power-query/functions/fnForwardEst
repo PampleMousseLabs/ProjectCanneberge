@@ -1,0 +1,140 @@
+(ticker as text) as table =>
+let
+    Url =
+        "https://stockanalysis.com/stocks/"
+        & Text.Lower(Text.Trim(ticker))
+        & "/forecast/",
+
+    Source = Web.Page(Web.Contents(Url)),
+    Tables = Source[Data],
+
+    // =========================================================
+    // HELPER: Convert "95.0B" / "35.8M" / "6.97" / "Pro" → number or null
+    // =========================================================
+    ToNumber = (v as any) as any =>
+        if v = null then null
+        else if v = "Pro" then null
+        else if v = "-" then null
+        else if v = "" then null
+        else
+            let
+                s = Text.Trim(Text.From(v)),
+                suffix = Text.End(s, 1),
+                base = Text.Start(s, Text.Length(s) - 1),
+                result =
+                    if suffix = "B" then Number.From(base) * 1000000000
+                    else if suffix = "M" then Number.From(base) * 1000000
+                    else if suffix = "K" then Number.From(base) * 1000
+                    else Number.From(s)
+            in
+                try result otherwise null,
+
+    // =========================================================
+    // HELPER: Process a raw table (Rev or EPS) into clean rows
+    // =========================================================
+    ProcessTable = (tbl as table, prefix as text) as table =>
+        let
+            // First column is the row label (High/Avg/Low)
+            FirstCol = Table.ColumnNames(tbl){0},
+
+            // Rename first col to "Line Item"
+            Labeled = Table.RenameColumns(tbl, {{FirstCol, "Line Item"}}),
+
+            // Rename year columns
+            Renamed =
+                Table.RenameColumns(
+                    Labeled,
+                    List.Transform(
+                        Table.ColumnNames(Labeled),
+                        (col) =>
+                            if Text.Contains(col, "2026") then {col, "2026"}
+                            else if Text.Contains(col, "2027") then {col, "2027"}
+                            else if Text.Contains(col, "2028") then {col, "2028"}
+                            else if Text.Contains(col, "2029") then {col, "2029"}
+                            else if Text.Contains(col, "2030") then {col, "2030"}
+                            else {col, col}
+                    )
+                ),
+
+            // Prefix the Line Item (e.g. "rev est avg", "eps est high")
+            Prefixed =
+                Table.TransformColumns(
+                    Renamed,
+                    {
+                        {
+                            "Line Item",
+                            each prefix & " " & Text.Lower(Text.Trim(Text.From(_))),
+                            type text
+                        }
+                    }
+                ),
+
+            // Convert number columns
+            YearCols = {"2026", "2027", "2028", "2029", "2030"},
+            ExistingYearCols =
+                List.Intersect({Table.ColumnNames(Prefixed), YearCols}),
+
+            Converted =
+                Table.TransformColumns(
+                    Prefixed,
+                    List.Transform(ExistingYearCols, (col) => {col, each ToNumber(_), type any})
+                ),
+
+            // Add Ticker
+            WithTicker =
+                Table.AddColumn(Converted, "Ticker", each Text.Lower(Text.Trim(ticker))),
+
+            // Add Key
+            WithKey =
+                Table.AddColumn(
+                    WithTicker,
+                    "Key",
+                    each [Ticker] & "|" & [Line Item]
+                )
+        in
+            WithKey,
+
+    // =========================================================
+    // PULL TABLE 4 (REVENUE) AND TABLE 6 (EPS)
+    // =========================================================
+    RevTable  = try Tables{4} otherwise null,
+    EpsTable  = try Tables{6} otherwise null,
+
+    RevClean  =
+        if RevTable = null then #table({}, {})
+        else ProcessTable(RevTable, "rev est"),
+
+    EpsClean  =
+        if EpsTable = null then #table({}, {})
+        else ProcessTable(EpsTable, "eps est"),
+
+    // =========================================================
+    // COMBINE
+    // =========================================================
+    Combined = Table.Combine({RevClean, EpsClean}),
+
+    // =========================================================
+    // COLUMN ORDER
+    // =========================================================
+    Ordered =
+        Table.SelectColumns(
+            Combined,
+            List.Intersect(
+                {
+                    {
+                        "Key",
+                        "Ticker",
+                        "Line Item",
+                        "2026",
+                        "2027",
+                        "2028",
+                        "2029",
+                        "2030"
+                    },
+                    Table.ColumnNames(Combined)
+                }
+            ),
+            MissingField.Ignore
+        )
+in
+    Ordered
