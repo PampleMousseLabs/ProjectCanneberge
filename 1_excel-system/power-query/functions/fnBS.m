@@ -1,4 +1,4 @@
-shared fnBS = (ticker as text) as table =>
+(ticker as text) as table =>
 let
     Url =
         "https://stockanalysis.com/stocks/"
@@ -58,4 +58,4 @@ let
             each [Ticker] & "|" & Text.Lower([Line Item])
         )
 in
-    fnSchemaLock(AddKey);
+    fnSchemaLock(AddKey)

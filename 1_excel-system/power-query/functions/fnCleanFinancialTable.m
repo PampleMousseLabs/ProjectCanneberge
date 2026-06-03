@@ -1,4 +1,4 @@
-shared fnCleanFinancialTable = (tbl as table) as table =>
+(tbl as table) as table =>
 let
     // 1. Standardize "junk text" → null
     CleanText =
@@ -41,4 +41,4 @@ let
         )
 
 in
-    Trimmed;
+    Trimmed

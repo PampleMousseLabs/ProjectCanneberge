@@ -1,4 +1,4 @@
-shared fnBeta = (tkr as text) as table =>
+(tkr as text) as table =>
 let
     Url =
         "https://stockanalysis.com/stocks/"
@@ -47,4 +47,4 @@ let
             }
         )
 in
-    fnSchemaLock(Output);
+    fnSchemaLock(Output)

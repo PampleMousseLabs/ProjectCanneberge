@@ -29,6 +29,13 @@ Public Sub Run_ETL_Pipeline()
     LogEvent "ETL PIPELINE STARTED (ASYNC MODE)"
 
     '=====================================================
+    ' STAGE 0 — SLUG EXTRACTION
+    '=====================================================
+    Run_Slug_Extraction
+
+    LogEvent "STAGE 0 COMPLETE — SLUGS REFRESHED"
+
+    '=====================================================
     ' STAGE 1 — INGESTION (TRIGGER ONLY)
     '=====================================================
     RunQuery "ALL_IS"

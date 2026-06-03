@@ -83,3 +83,7 @@ Public Sub CancelRefresh_Click(control As IRibbonControl)
     MsgBox "ETL Cancelled", vbExclamation
 
 End Sub
+
+Public Sub RunSlugButton(control As IRibbonControl)
+    Run_Slug_Extraction
+End Sub

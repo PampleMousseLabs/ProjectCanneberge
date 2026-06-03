@@ -1,5 +1,11 @@
 Option Explicit
 
+
+
+
+' =========================================================
+' pmlPRICE — live market price from Yahoo Finance
+' =========================================================
 Public Function pmlPRICE(ByVal ticker As String) As Variant
 
     Dim http As Object
@@ -8,8 +14,7 @@ Public Function pmlPRICE(ByVal ticker As String) As Variant
 
     On Error GoTo ErrHandler
 
-    url = "https://query1.finance.yahoo.com/v8/finance/chart/" & _
-          ticker
+    url = "https://query1.finance.yahoo.com/v8/finance/chart/" & ticker
 
     Set http = CreateObject("MSXML2.XMLHTTP")
 
@@ -29,7 +34,6 @@ Public Function pmlPRICE(ByVal ticker As String) As Variant
     End If
 
     startPos = startPos + Len("""regularMarketPrice"":")
-
     endPos = InStr(startPos, json, ",")
 
     pmlPRICE = CDbl(Mid(json, startPos, endPos - startPos))
@@ -37,7 +41,7 @@ Public Function pmlPRICE(ByVal ticker As String) As Variant
     Exit Function
 
 ErrHandler:
-
     pmlPRICE = CVErr(xlErrValue)
 
 End Function
+

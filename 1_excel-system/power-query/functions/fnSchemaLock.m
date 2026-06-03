@@ -1,4 +1,4 @@
-shared fnSchemaLock = (tbl as table) as table =>
+(tbl as table) as table =>
 let
     // =========================================================
     // REQUIRED FINAL SCHEMA (your system contract)
@@ -50,4 +50,4 @@ let
         Table.ReorderColumns(AddMissing, AllowedColumns, MissingField.Ignore)
 
 in
-    Reordered;
+    Reordered

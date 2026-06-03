@@ -1,6 +1,6 @@
 let
     // =========================================================
-    // 1. TICKERS
+    // 1. TICKERS + MS SLUGS
     // =========================================================
     Source =
         Excel.CurrentWorkbook(){[Name="tblIngest"]}[Content],
@@ -11,10 +11,17 @@ let
             each [Ticker] <> null and Text.Trim([Ticker]) <> ""
         ),
 
-    TickerList =
+    SlugSource =
+        Excel.CurrentWorkbook(){[Name="MS_Slug"]}[Content],
+
+    TickerSlugList =
         List.Buffer(
-            List.Distinct(
-                List.Transform(CleanTickers[Ticker], each Text.Trim(_))
+            List.Transform(
+                List.Positions(CleanTickers[Ticker]),
+                (i) => {
+                    Text.Trim(CleanTickers[Ticker]{i}),
+                    Text.Trim(SlugSource[MS_Slug]{i} ?? "")
+                }
             )
         ),
 
@@ -23,8 +30,8 @@ let
     // =========================================================
     RawResults =
         List.Transform(
-            TickerList,
-            (t) => try Table.Buffer(fnForwardEst(t)) otherwise null
+            TickerSlugList,
+            (pair) => try Table.Buffer(fnForwardEst(pair{0}, pair{1})) otherwise null
         ),
 
     // =========================================================
@@ -44,6 +51,5 @@ let
             #table({}, {})
         else
             Table.Combine(ValidTables)
-
 in
     Combined
