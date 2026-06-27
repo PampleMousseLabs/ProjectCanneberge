@@ -20,15 +20,15 @@ Notation: Phase > Section (#.#) > Sub-topic (#.#.#) > Artifact (filename)
 | 1.1 | Data ingestion | Complete |
 | 1.2 | Data transformation — tier 1 | Complete |
 | 1.3 | Data transformation — tier 2 | Complete |
-| 1.4 | Calculation layer | In progress |
-| 1.5 | Report output | TBD |
+| 1.4 | Calculation layer | Complete |
+| 1.5 | Report output | In Progress |
 
 ### Phase 2 — Refinement and documentation
 | Section | Name | Status |
 |---|---|---|
-| 2.1 | Input reduction | Not started |
-| 2.2 | Model specification | Not started |
-| 2.3 | Testing and validation | Not started |
+| 2.1 | Input reduction | In Progress |
+| 2.2 | Model specification | In Progress |
+| 2.3 | Testing and validation | In Progress |
 
 ### Phase 3 — Code migration
 | Section | Name | Status |
