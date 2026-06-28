@@ -1,4 +1,4 @@
-shared ALL_BS = let
+let
     // =========================================================
     // 1. Load tickers
     // =========================================================
@@ -50,4 +50,4 @@ shared ALL_BS = let
         else
             Table.Combine(ValidTables)
 in
-    Combined;
+    Combined

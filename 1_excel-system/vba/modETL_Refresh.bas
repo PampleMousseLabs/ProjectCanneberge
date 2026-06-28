@@ -1,10 +1,7 @@
 Option Explicit
 
-
-
-
 '=========================================================
-' MAIN ETL PIPELINE (ASYNC MODE - NO WAITING)
+' MAIN ETL PIPELINE
 '=========================================================
 Public Sub Run_ETL_Pipeline()
 
@@ -20,24 +17,40 @@ Public Sub Run_ETL_Pipeline()
 
     PML_IS_RUNNING = True
 
-    ' Speed optimizations
     Application.Calculation = xlCalculationManual
     Application.ScreenUpdating = False
     Application.EnableEvents = False
-    Application.StatusBar = "PML ETL: RUNNING (ASYNC MODE)"
+    Application.StatusBar = "PML ETL: VBA EXTRACTION RUNNING..."
 
-    LogEvent "ETL PIPELINE STARTED (ASYNC MODE)"
-
-    '=====================================================
-    ' STAGE 0 — SLUG EXTRACTION
-    '=====================================================
-    Run_Slug_Extraction
-
-    LogEvent "STAGE 0 COMPLETE — SLUGS REFRESHED"
+    ClearLog
+    LogEvent "ETL PIPELINE STARTED (log cleared for fresh diagnostics)"
 
     '=====================================================
-    ' STAGE 1 — INGESTION (TRIGGER ONLY)
+    ' STAGE 0 - VBA EXTRACTION (SYNCHRONOUS)
     '=====================================================
+    Dim extractionStats As Object
+    Set extractionStats = Run_FullExtraction_Internal()
+
+    If extractionStats Is Nothing Then
+        LogEvent "ETL PIPELINE ABORTED - VBA extraction failed catastrophically"
+
+        Application.Calculation = xlCalculationAutomatic
+        Application.StatusBar = False
+        Application.ScreenUpdating = True
+        Application.EnableEvents = True
+        PML_IS_RUNNING = False
+
+        MsgBox "ETL ABORTED - VBA extraction failed. Check ETL_LOG for details.", vbCritical
+        Exit Sub
+    End If
+
+    LogEvent "STAGE 0 COMPLETE - VBA EXTRACTION FINISHED"
+
+    '=====================================================
+    ' STAGE 1 - INGESTION QUERIES (TRIGGER ONLY)
+    '=====================================================
+    Application.StatusBar = "PML ETL: TRIGGERING POWER QUERIES..."
+
     RunQuery "ALL_IS"
     RunQuery "ALL_BS"
     RunQuery "ALL_CFS"
@@ -48,14 +61,14 @@ Public Sub Run_ETL_Pipeline()
     LogEvent "STAGE 1 TRIGGERED (NO WAIT)"
 
     '=====================================================
-    ' STAGE 2 — FINANCIALS (TRIGGER ONLY)
+    ' STAGE 2 - FINANCIALS COMBINED (TRIGGER ONLY)
     '=====================================================
     RunQuery "ALL_FINANCIALS"
 
-    LogEvent "FIN TRIGGERED (NO WAIT)"
+    LogEvent "STAGE 2 TRIGGERED (NO WAIT)"
 
     '=====================================================
-    ' EXIT IMMEDIATELY (DO NOT WAIT FOR PQ)
+    ' EXIT
     '=====================================================
     Application.Calculation = xlCalculationAutomatic
     Application.StatusBar = False
@@ -64,7 +77,13 @@ Public Sub Run_ETL_Pipeline()
 
     PML_IS_RUNNING = False
 
-    MsgBox "ETL triggered successfully (background processing).", vbInformation
+    Dim tickerCount As Long
+    tickerCount = ThisWorkbook.Worksheets(INPUTS_SHEET).ListObjects("tblIngest").DataBodyRange.Rows.Count
+
+    Dim popupMsg As String
+    popupMsg = BuildResultMessage(tickerCount, extractionStats, True)
+
+    MsgBox popupMsg, vbInformation, "ETL Pipeline Complete"
 
     Exit Sub
 
@@ -83,9 +102,40 @@ ErrHandler:
 
 End Sub
 
+'=========================================================
+' INTERNAL: FULL VBA EXTRACTION
+'=========================================================
+Private Function Run_FullExtraction_Internal() As Object
+
+    Dim slugDict As Object
+    Dim stats As Object
+
+    On Error GoTo ErrHandler
+
+    LogEvent "==== VBA EXTRACTION STARTED ===="
+
+    Set slugDict = Build_SlugDictionary()
+
+    If slugDict Is Nothing Or slugDict.Count = 0 Then
+        LogEvent "VBA EXTRACTION ABORTED - no slugs resolved"
+        Set Run_FullExtraction_Internal = Nothing
+        Exit Function
+    End If
+
+    Set stats = Run_FinanceData_Extraction(slugDict)
+
+    LogEvent "==== VBA EXTRACTION COMPLETE ===="
+    Set Run_FullExtraction_Internal = stats
+    Exit Function
+
+ErrHandler:
+    LogEvent "VBA EXTRACTION ERROR: " & Err.Description
+    Set Run_FullExtraction_Internal = Nothing
+
+End Function
 
 '=========================================================
-' QUERY RUNNER (ASYNC SAFE - NO BLOCKING)
+' QUERY RUNNER (ASYNC SAFE)
 '=========================================================
 Private Sub RunQuery(ByVal queryName As String)
 

@@ -8,45 +8,58 @@
         <group id="grpETL"
                label="Financial Data Engine">
 
-          <!-- STAGED ETL REFRESH -->
           <button id="btnRefreshStagedModel"
                   label="Refresh Source Data"
                   size="large"
                   imageMso="RefreshAll"
                   onAction="RefreshSourceData_Click"/>
 
-          <!-- BETA PIPELINE -->
           <button id="btnRefreshBeta"
                   label="β Refresh Beta"
                   size="normal"
                   imageMso="ChartLineMarkers"
                   onAction="RefreshBeta_Click"/>
 
-          <!-- ETL LOG -->
-          <button id="btnShowETLLog"
-                  label="Show ETL Log"
+          <button id="btnRefreshForwardEst"
+                  label="Refresh Forward Est"
                   size="normal"
-                  imageMso="DatabaseToolsRelationships"
-                  onAction="ShowETLLog_Click"/>
+                  imageMso="TimeScaleMenu"
+                  onAction="RefreshForwardEst_Click"/>
 
-          <!-- CANCEL -->
           <button id="btnCancelRefresh"
                   label="Cancel ETL"
                   size="normal"
                   imageMso="CancelRequest"
                   onAction="CancelRefresh_Click"/>
-             
-                  
 
         </group>
-        
-        <group id="grpSlug" label="Slug Tools">
 
-          <button id="btnSlugExtract"
-                  label="Extract Market Slugs"
+        <group id="grpDiagnostics"
+               label="Diagnostics Tools">
+
+          <button id="btnShowETLLog"
+                  label="Show ETL Log"
                   size="large"
-                  imageMso="MicrosoftVisualFoxPro"
-                  onAction="RunSlugButton"/>
+                  imageMso="DatabaseRelationships"
+                  onAction="ShowETLLog_Click"/>
+
+          <button id="btnClearETLLog"
+                  label="Clear ETL Log"
+                  size="normal"
+                  imageMso="InkEraser"
+                  onAction="ClearETLLog_Click"/>
+
+          <button id="btnTestConnection"
+                  label="Test Connection"
+                  size="normal"
+                  imageMso="GetExternalDataFromWeb"
+                  onAction="TestConnection_Click"/>
+
+          <button id="btnRunSummary"
+                  label="Run Summary"
+                  size="normal"
+                  imageMso="PropertySheet"
+                  onAction="ShowRunSummary_Click"/>
 
         </group>
 

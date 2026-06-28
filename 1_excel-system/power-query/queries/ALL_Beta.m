@@ -1,4 +1,4 @@
-shared ALL_Beta = let
+let
     // =========================================================
     // 1. Load tickers
     // =========================================================
@@ -53,4 +53,4 @@ shared ALL_Beta = let
             Table.Combine(ValidTables)
 
 in
-    ALL_Beta;
+    ALL_Beta

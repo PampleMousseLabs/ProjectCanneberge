@@ -2,11 +2,11 @@
 
 ## Overview
 
-The Excel system is the first phase of Project Canneberge. It is a fully functional ETL pipeline built inside a macro-enabled Excel workbook (`Project_Canneberge.xlsm`) that ingests financial data from stockanalysis.com, transforms it into a clean master table, and serves as the source of truth for the calculation layer.
+The Excel system is the first phase of Project Canneberge. It is a fully functional ETL pipeline built inside a macro-enabled Excel workbook (`Project_Canneberge.xlsm`) that ingests financial data from stockanalysis.com, MarketScreener.com, fred.stlouisfed.org, transforms it into a clean master table, and serves as the source of truth for the calculation layer.
 
 The system is organized into four sections:
 
-- **1.1 Data Ingestion** — Power Query fetcher functions that pull raw financial data per ticker
+- **1.1 Data Ingestion** — Power Query/VBA fetcher functions that pull raw financial data per ticker
 - **1.2 Tier 1 Transforms** — Combiner queries that loop tickers and stack results per statement type
 - **1.3 Tier 2 Transform** — Master table (`ALL_FINANCIALS`) combining all statements into one long/tall lookup table
 - **1.4 Calculation Layer** — Excel worksheet formulas and VBA-driven model (in progress)

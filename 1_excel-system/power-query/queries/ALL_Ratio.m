@@ -1,4 +1,4 @@
-shared ALL_Ratio = let
+let
     // =========================================================
     // 1. Load tickers
     // =========================================================
@@ -50,4 +50,4 @@ shared ALL_Ratio = let
         else
             Table.Combine(ValidTables)
 in
-    Combined;
+    Combined
