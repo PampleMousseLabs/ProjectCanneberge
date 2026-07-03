@@ -193,3 +193,17 @@ Public Sub CancelRefresh_Click(control As IRibbonControl)
     MsgBox "ETL Cancelled", vbExclamation
 
 End Sub
+
+
+'=========================================================
+' Refresh Comp Chart
+'=========================================================
+
+Public Sub RefreshCompChart_Click(control As IRibbonControl)
+
+
+    BuildCompChart
+
+
+
+End Sub

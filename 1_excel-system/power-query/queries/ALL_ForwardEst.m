@@ -2,8 +2,7 @@ let
     // =========================================================
     // 1. TICKERS
     // =========================================================
-    Source =
-        Excel.CurrentWorkbook(){[Name="tblIngest"]}[Content],
+    Source = Companies,
 
     CleanTickers =
         Table.SelectRows(

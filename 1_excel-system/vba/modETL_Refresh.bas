@@ -29,7 +29,7 @@ Public Sub Run_ETL_Pipeline()
     ' STAGE 0 - VBA EXTRACTION (SYNCHRONOUS)
     '=====================================================
     Dim extractionStats As Object
-    Set extractionStats = Run_FullExtraction_Internal()
+    Set extractionStats = Run_FullExtraction_AsFunction()
 
     If extractionStats Is Nothing Then
         LogEvent "ETL PIPELINE ABORTED - VBA extraction failed catastrophically"
@@ -80,8 +80,23 @@ Public Sub Run_ETL_Pipeline()
     Dim tickerCount As Long
     tickerCount = ThisWorkbook.Worksheets(INPUTS_SHEET).ListObjects("tblIngest").DataBodyRange.Rows.Count
 
+    ' Read subject ticker to pass into result message
+    Dim wsInputs As Worksheet
+    Dim companyStatus As String
+    Dim subjectTicker As String
+    Dim subjectTkr As String
+    
+    Set wsInputs = ThisWorkbook.Worksheets(INPUTS_SHEET)
+    companyStatus = Trim(wsInputs.Range("CompanyStatus").Value)
+    subjectTicker = Trim(wsInputs.Range("SubjectCompanyTicker").Value)
+    
+    subjectTkr = ""
+    If LCase(companyStatus) = "publicly traded" And subjectTicker <> "" Then
+        subjectTkr = subjectTicker
+    End If
+
     Dim popupMsg As String
-    popupMsg = BuildResultMessage(tickerCount, extractionStats, True)
+    popupMsg = BuildResultMessage(tickerCount, extractionStats, True, subjectTkr)
 
     MsgBox popupMsg, vbInformation, "ETL Pipeline Complete"
 
@@ -102,37 +117,6 @@ ErrHandler:
 
 End Sub
 
-'=========================================================
-' INTERNAL: FULL VBA EXTRACTION
-'=========================================================
-Private Function Run_FullExtraction_Internal() As Object
-
-    Dim slugDict As Object
-    Dim stats As Object
-
-    On Error GoTo ErrHandler
-
-    LogEvent "==== VBA EXTRACTION STARTED ===="
-
-    Set slugDict = Build_SlugDictionary()
-
-    If slugDict Is Nothing Or slugDict.Count = 0 Then
-        LogEvent "VBA EXTRACTION ABORTED - no slugs resolved"
-        Set Run_FullExtraction_Internal = Nothing
-        Exit Function
-    End If
-
-    Set stats = Run_FinanceData_Extraction(slugDict)
-
-    LogEvent "==== VBA EXTRACTION COMPLETE ===="
-    Set Run_FullExtraction_Internal = stats
-    Exit Function
-
-ErrHandler:
-    LogEvent "VBA EXTRACTION ERROR: " & Err.Description
-    Set Run_FullExtraction_Internal = Nothing
-
-End Function
 
 '=========================================================
 ' QUERY RUNNER (ASYNC SAFE)

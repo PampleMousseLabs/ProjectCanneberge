@@ -59,9 +59,20 @@
                   label="Run Summary"
                   size="normal"
                   imageMso="PropertySheet"
-                  onAction="ShowRunSummary_Click"/>
+                  onAction="ShowRunSummary_Click"/>                 
+       
+        </group>         
+        
+        <group id="grpSheetTools"
+               label="Sheet Tools">
+                  
+          <button id="btnRefreshCompChart"
+                  label="Refresh Comp Chart"
+                  size="large"
+                  imageMso="ChartErrorBars"
+                  onAction="RefreshCompChart_Click"/>
 
-        </group>
+        </group>                 
 
       </tab>
 

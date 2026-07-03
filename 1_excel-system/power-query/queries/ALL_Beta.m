@@ -2,8 +2,7 @@ let
     // =========================================================
     // 1. Load tickers
     // =========================================================
-    Source =
-        Excel.CurrentWorkbook(){[Name="tblIngest"]}[Content],
+   Source = Companies,
 
     CleanTickers =
         Table.SelectRows(

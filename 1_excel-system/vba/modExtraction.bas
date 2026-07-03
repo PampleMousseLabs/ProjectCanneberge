@@ -6,65 +6,165 @@ Option Explicit
 '====================================================
 Public Sub Run_FullExtraction()
 
-    Dim slugDict As Object
     Dim stats As Object
     Dim tickerCount As Long
     Dim msg As String
+
+    Set stats = Run_FullExtraction_AsFunction()
+
+    If stats Is Nothing Then
+        MsgBox "Full Extraction Aborted - No slugs resolved. Check log.", vbCritical
+        Exit Sub
+    End If
+
+    tickerCount = ThisWorkbook.Worksheets(INPUTS_SHEET).ListObjects("tblIngest").DataBodyRange.Rows.Count
+
+    Dim wsInputs As Worksheet
+    Dim companyStatus As String
+    Dim subjectTicker As String
+    Dim subjectTkr As String
+
+    Set wsInputs = ThisWorkbook.Worksheets(INPUTS_SHEET)
+    companyStatus = Trim(wsInputs.Range("CompanyStatus").Value)
+    subjectTicker = Trim(wsInputs.Range("SubjectCompanyTicker").Value)
+
+    subjectTkr = ""
+    If LCase(companyStatus) = "publicly traded" And subjectTicker <> "" Then
+        subjectTkr = subjectTicker
+    End If
+
+    msg = BuildResultMessage(tickerCount, stats, False, subjectTkr)
+    MsgBox msg, vbInformation, "Forward Est Refresh Complete"
+
+End Sub
+
+'====================================================
+' FULL EXTRACTION AS CALLABLE FUNCTION (no popup)
+'   Shared by both ribbon entry points so there is
+'   exactly one merge-logic implementation.
+'====================================================
+Public Function Run_FullExtraction_AsFunction() As Object
+
+    Dim slugDict As Object
+    Dim stats As Object
 
     LogEvent "==== FULL EXTRACTION STARTED ===="
 
     Set slugDict = Build_SlugDictionary()
 
+    Dim combinedList As Object
+    Set combinedList = Build_CombinedTickerList()
+    Dim ck As Variant
+    For Each ck In combinedList.Keys
+        If Not slugDict.Exists(CStr(ck)) Then
+            Dim sHtml As String
+            Dim sSlug As String
+            sHtml = GetQuickSearchResponse(CStr(ck))
+            sSlug = ExtractSlugFromQuickSearch(sHtml)
+
+            If sSlug = "" Then
+                Application.Wait Now + TimeValue("00:00:02")
+                sHtml = GetQuickSearchResponse(CStr(ck))
+                sSlug = ExtractSlugFromQuickSearch(sHtml)
+            End If
+
+            If sSlug <> "" Then
+                slugDict(CStr(ck)) = sSlug
+                LogEvent "SLUG (SUBJECT): " & CStr(ck) & " -> " & sSlug
+            Else
+                LogEvent "SLUG (SUBJECT): " & CStr(ck) & " -> NOT FOUND after retry (raw response len=" & Len(sHtml) & ")"
+            End If
+        End If
+    Next ck
+
     If slugDict Is Nothing Or slugDict.Count = 0 Then
         LogEvent "FULL EXTRACTION ABORTED - no slugs resolved"
-        MsgBox "Full Extraction Aborted - No slugs resolved. Check log.", vbCritical
-        Exit Sub
+        Set Run_FullExtraction_AsFunction = Nothing
+        Exit Function
     End If
 
-    Set stats = Run_FinanceData_Extraction(slugDict)
+    Dim subjectTkr As String
+    Dim companyStatus As String
+    Dim subjectTicker As String
+    Dim wsInputs As Worksheet
+
+    Set wsInputs = ThisWorkbook.Worksheets(INPUTS_SHEET)
+    companyStatus = Trim(wsInputs.Range("CompanyStatus").Value)
+    subjectTicker = Trim(wsInputs.Range("SubjectCompanyTicker").Value)
+
+    subjectTkr = ""
+    If LCase(companyStatus) = "publicly traded" And subjectTicker <> "" Then
+        subjectTkr = subjectTicker
+    End If
+
+    Set stats = Run_FinanceData_Extraction(slugDict, subjectTkr)
 
     LogEvent "==== FULL EXTRACTION COMPLETE ===="
+    Set Run_FullExtraction_AsFunction = stats
 
-    tickerCount = ThisWorkbook.Worksheets(INPUTS_SHEET).ListObjects("tblIngest").DataBodyRange.Rows.Count
-
-    msg = BuildResultMessage(tickerCount, stats, False)
-    MsgBox msg, vbInformation, "Forward Est Refresh Complete"
-
-End Sub
+End Function
 
 '====================================================
 ' BUILD RESULT MESSAGE
 '====================================================
 Public Function BuildResultMessage(ByVal tickerCount As Long, _
                                     ByVal stats As Object, _
-                                    ByVal isPipeline As Boolean) As String
+                                    ByVal isPipeline As Boolean, _
+                                    ByVal subjectTicker As String) As String
 
     Dim msg As String
     Dim failures As Long
     Dim warnings As Long
     Dim slowList As String
     Dim successes As Long
+    Dim ws As Worksheet
+    Dim gpcCount As Long
+    Dim subjectCount As Long
+    Dim companyStatus As String
+    
 
     failures = CLng(stats("failures"))
     warnings = CLng(stats("warnings"))
     slowList = CStr(stats("slowTickers"))
     successes = tickerCount - failures
 
+    ' Get GPC vs subject breakdown
+    Set ws = ThisWorkbook.Worksheets(INPUTS_SHEET)
+    gpcCount = 0
+    Dim tblIn As ListObject
+    Set tblIn = ws.ListObjects("tblIngest")
+    Dim i As Long
+    For i = 1 To tblIn.DataBodyRange.Rows.Count
+        If Trim(CStr(tblIn.DataBodyRange(i, 1).Value)) <> "" Then
+            gpcCount = gpcCount + 1
+        End If
+    Next i
+
+    companyStatus = Trim(ws.Range("CompanyStatus").Value)
+    subjectCount = IIf(LCase(companyStatus) = "publicly traded" And subjectTicker <> "", 1, 0)
+
+    Dim gpcFailures As String
+    Dim subjectFailed As Boolean
+    gpcFailures = CStr(stats("gpcFailures"))
+    subjectFailed = CBool(stats("subjectFailed"))
+
     If failures = 0 Then
-        If isPipeline Then
-            msg = "ETL Complete" & vbCrLf
-        Else
-            msg = "Forward Est Refresh Complete" & vbCrLf
+        msg = "Forward Est Refresh Complete" & vbCrLf
+        msg = msg & "  GPC: " & gpcCount & "/" & gpcCount & " extracted"
+        If subjectCount = 1 Then
+            msg = msg & vbCrLf & "  Subject (" & subjectTicker & "): 1/1"
         End If
-        msg = msg & successes & "/" & tickerCount & " tickers extracted successfully"
     Else
-        If isPipeline Then
-            msg = "ETL Complete (with issues)" & vbCrLf
+        msg = "Forward Est Refresh Complete (with issues)" & vbCrLf
+        If gpcFailures <> "" Then
+            msg = msg & "  GPC failures: " & Left(gpcFailures, Len(gpcFailures) - 2) & vbCrLf
         Else
-            msg = "Forward Est Refresh Complete (with issues)" & vbCrLf
+            msg = msg & "  GPC: " & gpcCount & "/" & gpcCount & " extracted" & vbCrLf
         End If
-        msg = msg & successes & "/" & tickerCount & " tickers extracted - " & failures & " failure(s)" & vbCrLf
-        msg = msg & "See ETL_LOG for details"
+        If subjectCount = 1 Then
+            msg = msg & "  Subject (" & subjectTicker & "): " & IIf(subjectFailed, "FAILED - check log", "1/1")
+        End If
+        msg = msg & vbCrLf & "See ETL_LOG for details"
     End If
 
     If warnings > 0 Then
@@ -80,6 +180,44 @@ Public Function BuildResultMessage(ByVal tickerCount As Long, _
     End If
 
     BuildResultMessage = msg
+
+End Function
+
+'====================================================
+' BUILD COMBINED TICKER LIST (GPC + SUBJECT IF PUBLIC)
+'====================================================
+Public Function Build_CombinedTickerList() As Object
+
+    Dim ws As Worksheet
+    Dim tblIn As ListObject
+    Dim dict As Object
+    Dim i As Long
+    Dim ticker As String
+    Dim companyStatus As String
+    Dim subjectTicker As String
+
+    Set ws = ThisWorkbook.Worksheets(INPUTS_SHEET)
+    Set tblIn = ws.ListObjects("tblIngest")
+    Set dict = CreateObject("Scripting.Dictionary")
+    dict.CompareMode = vbTextCompare
+
+    ' Add all GPC tickers
+    For i = 1 To tblIn.DataBodyRange.Rows.Count
+        ticker = Trim(CStr(tblIn.DataBodyRange(i, 1).Value))
+        If ticker <> "" Then dict(ticker) = ""
+    Next i
+
+   ' Add subject ticker if publicly traded
+    companyStatus = Trim(ws.Range("CompanyStatus").Value)
+    subjectTicker = Trim(ws.Range("SubjectCompanyTicker").Value)
+
+    If LCase(companyStatus) = "publicly traded" And subjectTicker <> "" Then
+        If Not dict.Exists(subjectTicker) Then
+            dict(subjectTicker) = ""
+        End If
+    End If
+    
+    Set Build_CombinedTickerList = dict
 
 End Function
 
@@ -145,7 +283,7 @@ End Function
 '====================================================
 ' FINANCE DATA EXTRACTION
 '====================================================
-Public Function Run_FinanceData_Extraction(ByVal slugDict As Object) As Object
+Public Function Run_FinanceData_Extraction(ByVal slugDict As Object, ByVal subjectTicker As String) As Object
 
     Dim wsIn As Worksheet
     Dim tblIn As ListObject
@@ -157,6 +295,8 @@ Public Function Run_FinanceData_Extraction(ByVal slugDict As Object) As Object
     Dim rowCount As Long
 
     Dim failureCount As Long
+    Dim gpcFailures As String
+    Dim subjectFailed As Boolean
     Dim warningCount As Long
     Dim slowList As String
     Dim tickerStart As Double
@@ -177,13 +317,35 @@ Public Function Run_FinanceData_Extraction(ByVal slugDict As Object) As Object
         tblOut.DataBodyRange.Delete
     End If
 
-    rowCount = tblIn.DataBodyRange.Rows.Count
+    ' *** FIX: ticker source is now GPC list + subject ticker, not GPC list alone ***
+    Dim tickerList As Collection
+    Set tickerList = New Collection
+
+    For i = 1 To tblIn.DataBodyRange.Rows.Count
+        ticker = Trim(CStr(tblIn.DataBodyRange(i, 1).Value))
+        If ticker <> "" Then tickerList.Add ticker
+    Next i
+
+    If subjectTicker <> "" Then
+        Dim alreadyIn As Boolean
+        Dim tk As Variant
+        alreadyIn = False
+        For Each tk In tickerList
+            If StrComp(CStr(tk), subjectTicker, vbTextCompare) = 0 Then
+                alreadyIn = True
+                Exit For
+            End If
+        Next tk
+        If Not alreadyIn Then tickerList.Add subjectTicker
+    End If
+
+    rowCount = tickerList.Count
 
     LogEvent "FINANCE EXTRACTION STARTED - " & rowCount & " tickers"
 
-    For i = 1 To rowCount
+    For i = 1 To tickerList.Count
 
-        ticker = Trim(CStr(tblIn.DataBodyRange(i, 1).Value))
+        ticker = CStr(tickerList(i))
 
         If ticker <> "" Then
 
@@ -211,6 +373,11 @@ Public Function Run_FinanceData_Extraction(ByVal slugDict As Object) As Object
                 Else
                     LogEvent "FINANCE: " & ticker & " - NO DATA"
                     failureCount = failureCount + 1
+                        If ticker = subjectTicker Then
+                            subjectFailed = True
+                        Else
+                            gpcFailures = gpcFailures & ticker & ", "
+                        End If
                 End If
 
                 tickerDuration = Timer - tickerStart
@@ -232,6 +399,11 @@ Public Function Run_FinanceData_Extraction(ByVal slugDict As Object) As Object
             Else
                 LogEvent "FINANCE: " & ticker & " - SKIPPED (no slug)"
                 failureCount = failureCount + 1
+                    If ticker = subjectTicker Then
+                        subjectFailed = True
+                    Else
+                        gpcFailures = gpcFailures & ticker & ", "
+                    End If
             End If
 
         End If
@@ -243,6 +415,8 @@ Public Function Run_FinanceData_Extraction(ByVal slugDict As Object) As Object
     stats("failures") = failureCount
     stats("warnings") = warningCount
     stats("slowTickers") = slowList
+    stats("gpcFailures") = gpcFailures
+    stats("subjectFailed") = subjectFailed
     Set Run_FinanceData_Extraction = stats
     Exit Function
 
