@@ -1,3 +1,4 @@
+Attribute VB_Name = "modETL_Logging"
 Option Explicit
 
 '====================================================
@@ -19,7 +20,7 @@ Public Sub LogEvent(ByVal msg As String)
         ws.Range("B1").Value = "Event"
     End If
 
-    nextRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row + 1
+    nextRow = ws.Cells(ws.Rows.count, 1).End(xlUp).Row + 1
 
     ws.Cells(nextRow, 1).Value = Now
     ws.Cells(nextRow, 2).Value = msg
@@ -40,7 +41,7 @@ Public Sub ClearLog()
     Set ws = ThisWorkbook.Worksheets(LOG_SHEET)
     If ws Is Nothing Then Exit Sub
 
-    lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+    lastRow = ws.Cells(ws.Rows.count, 1).End(xlUp).Row
     If lastRow > 1 Then
         ws.Range("A2:B" & lastRow).ClearContents
     End If

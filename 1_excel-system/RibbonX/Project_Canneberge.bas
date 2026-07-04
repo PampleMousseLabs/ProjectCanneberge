@@ -72,7 +72,17 @@
                   imageMso="ChartErrorBars"
                   onAction="RefreshCompChart_Click"/>
 
-        </group>                 
+        </group>
+            
+        <group id="grpDevTools" label="Dev Tools">
+            
+            <button id="btnExportCode"
+                  label="Export Code"
+                  imageMso="ExportTextFile"
+                  size="large"
+                  onAction="ExportCode_Click"
+                  supertip="Export all VBA modules and Power Query M code to the local repo folder (\vba\ and \power-query\)."/>
+        </group>                     
 
       </tab>
 

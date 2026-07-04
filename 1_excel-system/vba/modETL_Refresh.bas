@@ -1,3 +1,4 @@
+Attribute VB_Name = "modETL_Refresh"
 Option Explicit
 
 '=========================================================
@@ -78,7 +79,7 @@ Public Sub Run_ETL_Pipeline()
     PML_IS_RUNNING = False
 
     Dim tickerCount As Long
-    tickerCount = ThisWorkbook.Worksheets(INPUTS_SHEET).ListObjects("tblIngest").DataBodyRange.Rows.Count
+    tickerCount = ThisWorkbook.Worksheets(INPUTS_SHEET).ListObjects("tblIngest").DataBodyRange.Rows.count
 
     ' Read subject ticker to pass into result message
     Dim wsInputs As Worksheet

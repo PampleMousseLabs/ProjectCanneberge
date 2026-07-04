@@ -1,3 +1,4 @@
+Attribute VB_Name = "modProjectionToggle"
 Option Explicit
 
 Public Sub UpdateProjectionYears_AllSheets()

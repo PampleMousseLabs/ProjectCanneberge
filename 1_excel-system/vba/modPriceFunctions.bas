@@ -1,10 +1,11 @@
+Attribute VB_Name = "modPriceFunctions"
 Option Explicit
 
 
 
 
 ' =========================================================
-' pmlPRICE â€” live market price from Yahoo Finance
+' pmlPRICE — live market price from Yahoo Finance
 ' =========================================================
 Public Function pmlPRICE(ByVal ticker As String) As Variant
 

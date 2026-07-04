@@ -1,3 +1,4 @@
+Attribute VB_Name = "modDiagnostics"
 Option Explicit
 
 '=========================================================
@@ -72,7 +73,7 @@ Public Function GetRunSummary() As String
 
     Set wsLog = ThisWorkbook.Worksheets(LOG_SHEET)
     If Not wsLog Is Nothing Then
-        logRows = wsLog.Cells(wsLog.Rows.Count, 1).End(xlUp).Row - 1
+        logRows = wsLog.Cells(wsLog.Rows.count, 1).End(xlUp).Row - 1
         If logRows < 0 Then logRows = 0
 
         If logRows > 0 Then
@@ -107,7 +108,7 @@ Public Function GetRunSummary() As String
     Set tblIn = ThisWorkbook.Worksheets(INPUTS_SHEET).ListObjects("tblIngest")
     If Not tblIn Is Nothing Then
         If Not tblIn.DataBodyRange Is Nothing Then
-            tickerCount = tblIn.DataBodyRange.Rows.Count
+            tickerCount = tblIn.DataBodyRange.Rows.count
         End If
     End If
 
@@ -116,7 +117,7 @@ Public Function GetRunSummary() As String
     Set tblFwd = ThisWorkbook.Worksheets(FORWARD_RAW_SHEET).ListObjects("tblForwardEst_Raw")
     If Not tblFwd Is Nothing Then
         If Not tblFwd.DataBodyRange Is Nothing Then
-            forwardRowCount = tblFwd.DataBodyRange.Rows.Count
+            forwardRowCount = tblFwd.DataBodyRange.Rows.count
         End If
     End If
 

@@ -1,3 +1,4 @@
+Attribute VB_Name = "modRibbonCallbacks"
 Option Explicit
 
 '=========================================================
@@ -108,7 +109,7 @@ Public Sub ClearETLLog_Click(control As IRibbonControl)
     If resp <> vbYes Then Exit Sub
 
     Set ws = ThisWorkbook.Worksheets(LOG_SHEET)
-    lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+    lastRow = ws.Cells(ws.Rows.count, 1).End(xlUp).Row
 
     If lastRow > 1 Then
         ws.Range("A2:B" & lastRow).ClearContents
@@ -207,3 +208,67 @@ Public Sub RefreshCompChart_Click(control As IRibbonControl)
 
 
 End Sub
+
+'==========================================================
+' EXPORT CODE (VBA + Power Query M to local repo)
+'==========================================================
+Public Sub ExportCode_Click(control As IRibbonControl)
+    
+    On Error GoTo ErrHandler
+    
+    LogEvent "RIBBON: Export Code clicked"
+    
+    ExportAllCode
+    
+    Exit Sub
+
+ErrHandler:
+    MsgBox "Code export failed: " & Err.Description, vbCritical
+End Sub
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

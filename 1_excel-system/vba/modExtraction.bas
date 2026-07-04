@@ -1,3 +1,4 @@
+Attribute VB_Name = "modExtraction"
 Option Explicit
 
 '====================================================
@@ -17,7 +18,7 @@ Public Sub Run_FullExtraction()
         Exit Sub
     End If
 
-    tickerCount = ThisWorkbook.Worksheets(INPUTS_SHEET).ListObjects("tblIngest").DataBodyRange.Rows.Count
+    tickerCount = ThisWorkbook.Worksheets(INPUTS_SHEET).ListObjects("tblIngest").DataBodyRange.Rows.count
 
     Dim wsInputs As Worksheet
     Dim companyStatus As String
@@ -77,7 +78,7 @@ Public Function Run_FullExtraction_AsFunction() As Object
         End If
     Next ck
 
-    If slugDict Is Nothing Or slugDict.Count = 0 Then
+    If slugDict Is Nothing Or slugDict.count = 0 Then
         LogEvent "FULL EXTRACTION ABORTED - no slugs resolved"
         Set Run_FullExtraction_AsFunction = Nothing
         Exit Function
@@ -134,7 +135,7 @@ Public Function BuildResultMessage(ByVal tickerCount As Long, _
     Dim tblIn As ListObject
     Set tblIn = ws.ListObjects("tblIngest")
     Dim i As Long
-    For i = 1 To tblIn.DataBodyRange.Rows.Count
+    For i = 1 To tblIn.DataBodyRange.Rows.count
         If Trim(CStr(tblIn.DataBodyRange(i, 1).Value)) <> "" Then
             gpcCount = gpcCount + 1
         End If
@@ -202,7 +203,7 @@ Public Function Build_CombinedTickerList() As Object
     dict.CompareMode = vbTextCompare
 
     ' Add all GPC tickers
-    For i = 1 To tblIn.DataBodyRange.Rows.Count
+    For i = 1 To tblIn.DataBodyRange.Rows.count
         ticker = Trim(CStr(tblIn.DataBodyRange(i, 1).Value))
         If ticker <> "" Then dict(ticker) = ""
     Next i
@@ -240,7 +241,7 @@ Public Function Build_SlugDictionary() As Object
     Set ws = ThisWorkbook.Worksheets(INPUTS_SHEET)
     Set tblIn = ws.ListObjects("tblIngest")
 
-    rowCount = tblIn.DataBodyRange.Rows.Count
+    rowCount = tblIn.DataBodyRange.Rows.count
 
     LogEvent "SLUG BUILD STARTED - " & rowCount & " tickers"
 
@@ -269,7 +270,7 @@ Public Function Build_SlugDictionary() As Object
 
     Next i
 
-    LogEvent "SLUG BUILD COMPLETE - " & dict.Count & " resolved"
+    LogEvent "SLUG BUILD COMPLETE - " & dict.count & " resolved"
     Set Build_SlugDictionary = dict
     Exit Function
 
@@ -321,7 +322,7 @@ Public Function Run_FinanceData_Extraction(ByVal slugDict As Object, ByVal subje
     Dim tickerList As Collection
     Set tickerList = New Collection
 
-    For i = 1 To tblIn.DataBodyRange.Rows.Count
+    For i = 1 To tblIn.DataBodyRange.Rows.count
         ticker = Trim(CStr(tblIn.DataBodyRange(i, 1).Value))
         If ticker <> "" Then tickerList.Add ticker
     Next i
@@ -339,11 +340,11 @@ Public Function Run_FinanceData_Extraction(ByVal slugDict As Object, ByVal subje
         If Not alreadyIn Then tickerList.Add subjectTicker
     End If
 
-    rowCount = tickerList.Count
+    rowCount = tickerList.count
 
     LogEvent "FINANCE EXTRACTION STARTED - " & rowCount & " tickers"
 
-    For i = 1 To tickerList.Count
+    For i = 1 To tickerList.count
 
         ticker = CStr(tickerList(i))
 
@@ -357,27 +358,30 @@ Public Function Run_FinanceData_Extraction(ByVal slugDict As Object, ByVal subje
 
             If slug <> "" Then
 
+                Dim httpStatus As Long
+
                 tickerStart = Timer
                 warnsBefore = CountWarnsForTicker(ticker)
 
-                html = GetFinancePageHTML(slug)
+                html = GetFinancePageHTML(slug, httpStatus)
 
                 If Len(html) < 1000 Or InStr(1, html, "EBITDA", vbTextCompare) = 0 Then
                     Application.Wait Now + TimeValue("00:00:02")
-                    html = GetFinancePageHTML(slug)
+                    html = GetFinancePageHTML(slug, httpStatus)
                 End If
 
                 If Len(html) > 1000 And InStr(1, html, "EBITDA", vbTextCompare) > 0 Then
                     ParseAndWriteFinanceRows ticker, html, tblOut
-                    LogEvent "FINANCE: " & ticker & " - OK"
+                    LogEvent "FINANCE: " & ticker & " - OK (status=" & httpStatus & ", len=" & Len(html) & ")"
                 Else
-                    LogEvent "FINANCE: " & ticker & " - NO DATA"
+                    LogEvent "FINANCE: " & ticker & " - NO DATA (status=" & httpStatus & ", len=" & Len(html) & ")"
+                    DumpFailedFinanceHTML ticker, html, httpStatus
                     failureCount = failureCount + 1
-                        If ticker = subjectTicker Then
-                            subjectFailed = True
-                        Else
-                            gpcFailures = gpcFailures & ticker & ", "
-                        End If
+                    If ticker = subjectTicker Then
+                        subjectFailed = True
+                    Else
+                        gpcFailures = gpcFailures & ticker & ", "
+                    End If
                 End If
 
                 tickerDuration = Timer - tickerStart
@@ -446,7 +450,7 @@ Private Function CountWarnsForTicker(ByVal ticker As String) As Long
         Exit Function
     End If
 
-    lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+    lastRow = ws.Cells(ws.Rows.count, 1).End(xlUp).Row
     For i = 2 To lastRow
         If InStr(1, CStr(ws.Cells(i, 2).Value), "WARN", vbTextCompare) > 0 Then
             If InStr(1, CStr(ws.Cells(i, 2).Value), ticker, vbTextCompare) > 0 Then
@@ -494,7 +498,7 @@ End Function
 '====================================================
 ' HTTP - FINANCE PAGE HTML
 '====================================================
-Private Function GetFinancePageHTML(ByVal slug As String) As String
+Private Function GetFinancePageHTML(ByVal slug As String, Optional ByRef statusCode As Long = 0) As String
 
     Dim http As Object
     Dim url As String
@@ -509,13 +513,44 @@ Private Function GetFinancePageHTML(ByVal slug As String) As String
     http.setRequestHeader "Referer", "https://www.marketscreener.com/"
     http.send
 
+    statusCode = http.status
     GetFinancePageHTML = http.responseText
     Exit Function
 
 ErrHandler:
+    statusCode = -1
     GetFinancePageHTML = ""
 
 End Function
+
+Private Sub DumpFailedFinanceHTML(ByVal ticker As String, _
+                                   ByVal html As String, _
+                                   ByVal httpStatus As Long)
+    On Error GoTo CleanFail
+    
+    Dim dumpDir As String
+    Dim outPath As String
+    Dim ff As Integer
+    
+    dumpDir = Environ$("TEMP") & "\Canneberge_FailedFinance"
+    If Dir(dumpDir, vbDirectory) = "" Then MkDir dumpDir
+    
+    outPath = dumpDir & "\" & ticker & _
+              "_" & Format(Now, "yyyymmdd_hhnnss") & _
+              "_status" & httpStatus & _
+              "_len" & Len(html) & ".html"
+    
+    ff = FreeFile
+    Open outPath For Output As #ff
+    Print #ff, html
+    Close #ff
+    
+    LogEvent "  -> HTML dumped: " & outPath
+    Exit Sub
+
+CleanFail:
+    LogEvent "  -> HTML dump FAILED: " & Err.Description
+End Sub
 
 '====================================================
 ' SLUG PARSER
@@ -572,16 +607,16 @@ Private Sub ParseAndWriteFinanceRows(ByVal ticker As String, ByVal html As Strin
     Dim key As Variant
 
     Set years = GetYearHeaders(html)
-    If years.Count = 0 Then
+    If years.count = 0 Then
         LogEvent "  WARN: " & ticker & " - no year headers found"
         Exit Sub
     End If
 
     Set lineItems = CreateObject("Scripting.Dictionary")
-    Set lineItems("ms rev est") = GetRowValues(html, "Net sales", years.Count)
-    Set lineItems("ms ebitda est") = GetRowValues(html, "EBITDA", years.Count)
-    Set lineItems("ms ebit est") = GetRowValuesEBIT(html, years.Count)
-    Set lineItems("ms net income est") = GetRowValues(html, "Net income", years.Count)
+    Set lineItems("ms rev est") = GetRowValues(html, "Net sales", years.count)
+    Set lineItems("ms ebitda est") = GetRowValues(html, "EBITDA", years.count)
+    Set lineItems("ms ebit est") = GetRowValuesEBIT(html, years.count)
+    Set lineItems("ms net income est") = GetRowValues(html, "Net income", years.count)
 
     For Each key In lineItems.Keys
 
@@ -592,8 +627,8 @@ Private Sub ParseAndWriteFinanceRows(ByVal ticker As String, ByVal html As Strin
         newRow.Range(1, 2).Value = LCase(ticker)
         newRow.Range(1, 3).Value = key
 
-        If vals.Count = years.Count Then
-            For i = 1 To years.Count
+        If vals.count = years.count Then
+            For i = 1 To years.count
                 Select Case CStr(years(i))
                     Case "2026"
                         newRow.Range(1, 4).Value = CleanNumber(CStr(vals(i)))
@@ -604,7 +639,7 @@ Private Sub ParseAndWriteFinanceRows(ByVal ticker As String, ByVal html As Strin
                 End Select
             Next i
         Else
-            LogEvent "  WARN: " & ticker & " - " & key & " - got " & vals.Count & " vals, expected " & years.Count
+            LogEvent "  WARN: " & ticker & " - " & key & " - got " & vals.count & " vals, expected " & years.count
         End If
 
     Next key
@@ -683,7 +718,7 @@ Private Function GetRowValues(ByVal html As String, ByVal label As String, ByVal
     Set matches = re.Execute(cleanedSegment)
     For Each m In matches
         result.Add CStr(m.SubMatches(0))
-        If expectedCount > 0 And result.Count >= expectedCount Then Exit For
+        If expectedCount > 0 And result.count >= expectedCount Then Exit For
     Next m
 
     Set GetRowValues = result
@@ -731,7 +766,7 @@ Private Function GetRowValuesEBIT(ByVal html As String, ByVal expectedCount As L
     Set matches = re.Execute(cleanedSegment)
     For Each m In matches
         result.Add CStr(m.SubMatches(0))
-        If expectedCount > 0 And result.Count >= expectedCount Then Exit For
+        If expectedCount > 0 And result.count >= expectedCount Then Exit For
     Next m
 
     Set GetRowValuesEBIT = result
@@ -800,7 +835,7 @@ End Function
 
 Private Function ContainsInCol(col As Collection, v As String) As Boolean
     Dim i As Long
-    For i = 1 To col.Count
+    For i = 1 To col.count
         If col(i) = v Then ContainsInCol = True: Exit Function
     Next i
     ContainsInCol = False

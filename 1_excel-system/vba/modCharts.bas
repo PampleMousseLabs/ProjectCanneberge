@@ -1,3 +1,4 @@
+Attribute VB_Name = "modCharts"
 Public Sub BuildCompChart()
 
     Dim ws As Worksheet
@@ -52,7 +53,7 @@ Public Sub BuildCompChart()
     ' FIND SUBJECT COMPANY ROW
     ' =========================================================
     subjectRow = 0
-    For i = 1 To nameRng.Rows.Count
+    For i = 1 To nameRng.Rows.count
         If InStr(1, nameRng.Cells(i, 1).Value, subjectName, vbTextCompare) > 0 Then
             subjectRow = i
             Exit For
@@ -64,10 +65,10 @@ Public Sub BuildCompChart()
     ' Main series = all companies EXCEPT subject (blue)
     ' Highlight series = subject company only (lavender)
     ' =========================================================
-    ReDim mainValues(1 To nameRng.Rows.Count)
-    ReDim hlValues(1 To nameRng.Rows.Count)
+    ReDim mainValues(1 To nameRng.Rows.count)
+    ReDim hlValues(1 To nameRng.Rows.count)
 
-    For i = 1 To nameRng.Rows.Count
+    For i = 1 To nameRng.Rows.count
         If i = subjectRow Then
             mainValues(i) = 0
             hlValues(i) = valRng.Cells(i, 1).Value
@@ -82,7 +83,7 @@ Public Sub BuildCompChart()
         .ChartType = xlBarClustered
 
         ' =========================================================
-        ' MAIN SERIES â€” ALL COMPANIES EXCEPT SUBJECT
+        ' MAIN SERIES — ALL COMPANIES EXCEPT SUBJECT
         ' =========================================================
         .SeriesCollection.NewSeries
         Set srs = .SeriesCollection(1)
@@ -93,7 +94,7 @@ Public Sub BuildCompChart()
         srs.Format.Line.Visible = msoFalse
 
         ' =========================================================
-        ' HIGHLIGHT SERIES â€” SUBJECT COMPANY ONLY
+        ' HIGHLIGHT SERIES — SUBJECT COMPANY ONLY
         ' =========================================================
         .SeriesCollection.NewSeries
         Set srsHL = .SeriesCollection(2)
@@ -129,7 +130,7 @@ Public Sub BuildCompChart()
         .Axes(xlCategory).ReversePlotOrder = True
 
         ' =========================================================
-        ' CHART TITLE â€” FULL WIDTH PURPLE HEADER
+        ' CHART TITLE — FULL WIDTH PURPLE HEADER
         ' =========================================================
         .HasTitle = True
         .ChartTitle.Text = metricName
@@ -159,7 +160,7 @@ Public Sub BuildCompChart()
     End With
 
     ' =========================================================
-    ' CHART BORDER â€” set on ChartObject, not co.Chart
+    ' CHART BORDER — set on ChartObject, not co.Chart
     ' =========================================================
     With co.Border
         .Color = RGB(203, 213, 225)

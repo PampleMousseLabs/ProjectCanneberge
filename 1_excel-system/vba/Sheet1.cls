@@ -1,4 +1,12 @@
-Attribute VB_Name = "modNAVtoggle"
+VERSION 1.0 CLASS
+BEGIN
+  MultiUse = -1  'True
+END
+Attribute VB_Name = "Sheet1"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = True
 Option Explicit
 
 Public Sub UpdateCostCount_AllSheets()
@@ -106,3 +114,5 @@ End Function
 Public Sub RefreshCostCount()
     UpdateCostCount_AllSheets
 End Sub
+
+

@@ -1,3 +1,4 @@
+Attribute VB_Name = "modETL_Global"
 Option Explicit
 
 Public PML_IS_RUNNING As Boolean

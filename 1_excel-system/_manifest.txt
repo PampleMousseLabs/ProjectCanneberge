@@ -1,0 +1,7 @@
+Project Canneberge - Code Export Manifest
+============================================================
+Exported     : 2026-07-03 20:22:05
+Workbook     : G:\My Drive\PampleMousseLabs\Project Canneberge\Project_Canneberge.xlsm
+VBA files    : 53
+M queries    : 18
+Export folder: C:\Users\gwolter\Desktop\GitHub\Canneberge\1_excel-system
