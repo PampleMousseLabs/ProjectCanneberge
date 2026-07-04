@@ -523,6 +523,13 @@ ErrHandler:
 
 End Function
 
+'==========================================================
+' DUMP FAILED FINANCE HTML
+' Persists the raw HTML response to %TEMP%\Canneberge_FailedFinance\
+' whenever the finance parser rejects a response. Useful for
+' diagnosing whether the failure is a rate limit, consent wall,
+' JS shell, or page redesign.
+'==========================================================
 Private Sub DumpFailedFinanceHTML(ByVal ticker As String, _
                                    ByVal html As String, _
                                    ByVal httpStatus As Long)
