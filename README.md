@@ -183,6 +183,7 @@ All ETL operations and diagnostics are triggered via a custom Excel ribbon tab.
 ## Repository Structure
 
 ProjectCanneberge/
+
 ├── README.md ← this file (project-wide context brief)
 └── 1_excel-system/
 ├── excel-system.md ← Phase 1 detailed documentation
