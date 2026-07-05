@@ -602,7 +602,7 @@ Private Function ExtractSlugFromQuickSearch(ByVal response As String) As String
 End Function
 
 '====================================================
-' FINANCE PARSER
+' FINANCE PARSER (REFACTORED: dynamic year mapping)
 '====================================================
 Private Sub ParseAndWriteFinanceRows(ByVal ticker As String, ByVal html As String, ByRef tblOut As ListObject)
 
@@ -612,6 +612,19 @@ Private Sub ParseAndWriteFinanceRows(ByVal ticker As String, ByVal html As Strin
     Dim newRow As ListRow
     Dim i As Long
     Dim key As Variant
+
+    ' REFACTORED: Read year anchors from Control sheet
+    Dim wsInputs As Worksheet
+    Set wsInputs = ThisWorkbook.Worksheets(INPUTS_SHEET)
+
+    Dim NFY As Long:  NFY = Year(wsInputs.Range("NextFiscalYear").Value)
+    Dim NFY1 As Long: NFY1 = Year(wsInputs.Range("NFY_1").Value)
+    Dim NFY2 As Long: NFY2 = Year(wsInputs.Range("NFY_2").Value)
+
+    ' REFACTORED: Ensure tblForwardEst_Raw column headers match Control sheet years
+    tblOut.HeaderRowRange(1, 4).Value = CStr(NFY)
+    tblOut.HeaderRowRange(1, 5).Value = CStr(NFY1)
+    tblOut.HeaderRowRange(1, 6).Value = CStr(NFY2)
 
     Set years = GetYearHeaders(html)
     If years.count = 0 Then
@@ -636,12 +649,13 @@ Private Sub ParseAndWriteFinanceRows(ByVal ticker As String, ByVal html As Strin
 
         If vals.count = years.count Then
             For i = 1 To years.count
-                Select Case CStr(years(i))
-                    Case "2026"
+                ' REFACTORED: Dynamic year-to-column mapping
+                Select Case CLng(years(i))
+                    Case NFY
                         newRow.Range(1, 4).Value = CleanNumber(CStr(vals(i)))
-                    Case "2027"
+                    Case NFY1
                         newRow.Range(1, 5).Value = CleanNumber(CStr(vals(i)))
-                    Case "2028"
+                    Case NFY2
                         newRow.Range(1, 6).Value = CleanNumber(CStr(vals(i)))
                 End Select
             Next i

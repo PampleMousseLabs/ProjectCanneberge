@@ -1,5 +1,12 @@
 (ticker as text) as table =>
 let
+    // REFACTORED: Read year anchors from Control sheet
+    LFY = Date.Year(Excel.CurrentWorkbook(){[Name="FiscalYearEnd"]}[Content]{0}[Column1]),
+    LFY_1 = LFY - 1,
+    LFY_2 = LFY - 2,
+    LFY_3 = LFY - 3,
+    LFY_4 = LFY - 4,
+
     Url =
         "https://stockanalysis.com/stocks/"
         & Text.Lower(Text.Trim(ticker))
@@ -34,6 +41,7 @@ let
     AddTicker =
         Table.AddColumn(Standardized, "Ticker", each Text.Lower(Text.Trim(ticker))),
 
+    // REFACTORED: Dynamic year mapping instead of hardcoded years
     Renamed =
         Table.RenameColumns(
             AddTicker,
@@ -41,11 +49,11 @@ let
                 Table.ColumnNames(AddTicker),
                 (col) =>
                     if Text.StartsWith(col, "TTM") then {col, "TTM"}
-                    else if Text.Contains(col, "FY 2025") then {col, "2025"}
-                    else if Text.Contains(col, "FY 2024") then {col, "2024"}
-                    else if Text.Contains(col, "FY 2023") then {col, "2023"}
-                    else if Text.Contains(col, "FY 2022") then {col, "2022"}
-                    else if Text.Contains(col, "FY 2021") then {col, "2021"}
+                    else if Text.Contains(col, "FY " & Text.From(LFY)) then {col, Text.From(LFY)}
+                    else if Text.Contains(col, "FY " & Text.From(LFY_1)) then {col, Text.From(LFY_1)}
+                    else if Text.Contains(col, "FY " & Text.From(LFY_2)) then {col, Text.From(LFY_2)}
+                    else if Text.Contains(col, "FY " & Text.From(LFY_3)) then {col, Text.From(LFY_3)}
+                    else if Text.Contains(col, "FY " & Text.From(LFY_4)) then {col, Text.From(LFY_4)}
                     else if Text.StartsWith(col, "Current") then {col, "Current"}
                     else {col, col}
             )
@@ -58,4 +66,4 @@ let
             each [Ticker] & "|" & Text.Lower([Line Item])
         )
 in
-    fnSchemaLock(AddKey)
+    fnSchemaLockRatio(AddKey)

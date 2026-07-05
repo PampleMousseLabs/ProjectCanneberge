@@ -1,27 +1,25 @@
 (tbl as table) as table =>
 let
+    LFY = Date.Year(Excel.CurrentWorkbook(){[Name="FiscalYearEnd"]}[Content]{0}[Column1]),
+
     // =========================================================
-    // REQUIRED FINAL SCHEMA (your system contract)
+    // FINANCIALS SCHEMA — for fnIS, fnBS, fnCFS
     // =========================================================
     AllowedColumns =
         {
             "Ticker",
             "Line Item",
             "TTM",
-            "Current",
-            "2025",
-            "2024",
-            "2023",
-            "2022",
-            "2021",
+            Text.From(LFY),
+            Text.From(LFY - 1),
+            Text.From(LFY - 2),
+            Text.From(LFY - 3),
+            Text.From(LFY - 4),
             "Key"
         },
 
     ExistingCols = Table.ColumnNames(tbl),
 
-    // =========================================================
-    // STEP 1: REMOVE UNWANTED COLUMNS
-    // =========================================================
     RemovedExtras =
         Table.SelectColumns(
             tbl,
@@ -29,9 +27,6 @@ let
             MissingField.Ignore
         ),
 
-    // =========================================================
-    // STEP 2: ENSURE ALL EXPECTED COLUMNS EXIST
-    // =========================================================
     AddMissing =
         List.Accumulate(
             AllowedColumns,
@@ -43,11 +38,7 @@ let
                     Table.AddColumn(state, col, each null)
         ),
 
-    // =========================================================
-    // STEP 3: ORDER COLUMNS CONSISTENTLY
-    // =========================================================
     Reordered =
         Table.ReorderColumns(AddMissing, AllowedColumns, MissingField.Ignore)
-
 in
     Reordered

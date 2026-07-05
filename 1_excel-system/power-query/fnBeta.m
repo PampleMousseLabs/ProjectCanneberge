@@ -47,4 +47,4 @@ let
             }
         )
 in
-    fnSchemaLock(Output)
+    fnSchemaLockBeta(Output)

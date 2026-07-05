@@ -1,4 +1,28 @@
 let
+    // REFACTORED: Read year anchors from Control sheet
+    LFY = Date.Year(Excel.CurrentWorkbook(){[Name="FiscalYearEnd"]}[Content]{0}[Column1]),
+    NFY = Date.Year(Excel.CurrentWorkbook(){[Name="NextFiscalYear"]}[Content]{0}[Column1]),
+    NFY1 = Date.Year(Excel.CurrentWorkbook(){[Name="NFY_1"]}[Content]{0}[Column1]),
+    NFY2 = Date.Year(Excel.CurrentWorkbook(){[Name="NFY_2"]}[Content]{0}[Column1]),
+
+    // REFACTORED: Dynamic column list
+    OutputColumns =
+        {
+            "Key",
+            "Ticker",
+            "Line Item",
+            "TTM",
+            "Current",
+            Text.From(LFY - 4),
+            Text.From(LFY - 3),
+            Text.From(LFY - 2),
+            Text.From(LFY - 1),
+            Text.From(LFY),
+            Text.From(NFY),
+            Text.From(NFY1),
+            Text.From(NFY2)
+        },
+
     // =========================================================
     // 1. TICKERS (BUFFERED)
     // =========================================================
@@ -34,30 +58,14 @@ let
         Table.Combine(CombinedList),
 
     // =========================================================
-    // 4. CLEAN FINAL OUTPUT
+    // 4. CLEAN FINAL OUTPUT (REFACTORED: dynamic column list)
     // =========================================================
     Cleaned =
         Table.SelectColumns(
             CombinedTable,
             List.Intersect(
                 {
-                    {
-                        "Key",
-                        "Ticker",
-                        "Line Item",
-                        "TTM",
-                        "Current",
-                        "2021",
-                        "2022",
-                        "2023",
-                        "2024",
-                        "2025",
-                        "2026",
-                        "2027",
-                        "2028",
-                        "2029",
-                        "2030"
-                    },
+                    OutputColumns,
                     Table.ColumnNames(CombinedTable)
                 }
             ),
