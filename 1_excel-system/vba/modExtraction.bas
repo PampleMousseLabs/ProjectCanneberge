@@ -58,22 +58,22 @@ Public Function Run_FullExtraction_AsFunction() As Object
     Dim ck As Variant
     For Each ck In combinedList.Keys
         If Not slugDict.Exists(CStr(ck)) Then
-            Dim sHtml As String
-            Dim sSlug As String
-            sHtml = GetQuickSearchResponse(CStr(ck))
-            sSlug = ExtractSlugFromQuickSearch(sHtml)
+            Dim shtml As String
+            Dim sslug As String
+            shtml = GetQuickSearchResponse(CStr(ck))
+            sslug = ExtractSlugFromQuickSearch(shtml)
 
-            If sSlug = "" Then
+            If sslug = "" Then
                 Application.Wait Now + TimeValue("00:00:02")
-                sHtml = GetQuickSearchResponse(CStr(ck))
-                sSlug = ExtractSlugFromQuickSearch(sHtml)
+                shtml = GetQuickSearchResponse(CStr(ck))
+                sslug = ExtractSlugFromQuickSearch(shtml)
             End If
 
-            If sSlug <> "" Then
-                slugDict(CStr(ck)) = sSlug
-                LogEvent "SLUG (SUBJECT): " & CStr(ck) & " -> " & sSlug
+            If sslug <> "" Then
+                slugDict(CStr(ck)) = sslug
+                LogEvent "SLUG (SUBJECT): " & CStr(ck) & " -> " & sslug
             Else
-                LogEvent "SLUG (SUBJECT): " & CStr(ck) & " -> NOT FOUND after retry (raw response len=" & Len(sHtml) & ")"
+                LogEvent "SLUG (SUBJECT): " & CStr(ck) & " -> NOT FOUND after retry (raw response len=" & Len(shtml) & ")"
             End If
         End If
     Next ck
@@ -372,7 +372,13 @@ Public Function Run_FinanceData_Extraction(ByVal slugDict As Object, ByVal subje
 
                 If Len(html) > 1000 And InStr(1, html, "EBITDA", vbTextCompare) > 0 Then
                     ParseAndWriteFinanceRows ticker, html, tblOut
-                    LogEvent "FINANCE: " & ticker & " - OK (status=" & httpStatus & ", len=" & Len(html) & ")"
+    
+                    ' NEW: Extract and write company name
+                    Dim companyName As String
+                    companyName = ExtractCompanyNameFromHTML(html)
+                    WriteCompanyName ticker, companyName, subjectTicker
+    
+                    LogEvent "FINANCE: " & ticker & " - OK (status=" & httpStatus & ", len=" & Len(html) & ") - " & companyName
                 Else
                     LogEvent "FINANCE: " & ticker & " - NO DATA (status=" & httpStatus & ", len=" & Len(html) & ")"
                     DumpFailedFinanceHTML ticker, html, httpStatus
@@ -557,6 +563,88 @@ Private Sub DumpFailedFinanceHTML(ByVal ticker As String, _
 
 CleanFail:
     LogEvent "  -> HTML dump FAILED: " & Err.Description
+End Sub
+
+'==========================================================
+' EXTRACT COMPANY NAME (PROPER) FROM MARKETSCREENER HTML
+' Reads the <title> tag and returns the first ":"-delimited segment.
+' Example: "Amazon.com, Inc.: Financial Data..." -> "Amazon.com, Inc."
+'==========================================================
+Private Function ExtractCompanyNameFromHTML(ByVal html As String) As String
+
+    Dim p1 As Long, p2 As Long
+    Dim titleText As String
+    Dim colonPos As Long
+
+    p1 = InStr(1, html, "<title>", vbTextCompare)
+    If p1 = 0 Then
+        ExtractCompanyNameFromHTML = ""
+        Exit Function
+    End If
+
+    p1 = p1 + Len("<title>")
+    p2 = InStr(p1, html, "</title>", vbTextCompare)
+    If p2 = 0 Then
+        ExtractCompanyNameFromHTML = ""
+        Exit Function
+    End If
+
+    titleText = Trim(Mid(html, p1, p2 - p1))
+
+    colonPos = InStr(1, titleText, ":", vbTextCompare)
+    If colonPos = 0 Then
+        ' No colon — return full title as fallback
+        ExtractCompanyNameFromHTML = titleText
+        Exit Function
+    End If
+
+    ExtractCompanyNameFromHTML = Trim(Left(titleText, colonPos - 1))
+
+End Function
+
+'==========================================================
+' WRITE COMPANY NAME TO CONTROL SHEET
+' GPC tickers -> C28:C42 (matched by row within tblIngest)
+' Subject ticker -> H10 (only if CompanyStatus = "Publicly Traded")
+'==========================================================
+Private Sub WriteCompanyName(ByVal ticker As String, _
+                              ByVal companyName As String, _
+                              ByVal subjectTicker As String)
+
+    On Error GoTo CleanFail
+
+    If companyName = "" Then Exit Sub
+
+    Dim wsInputs As Worksheet
+    Set wsInputs = ThisWorkbook.Worksheets(INPUTS_SHEET)
+
+    ' Subject ticker -> H10 (only if publicly traded)
+    If ticker = subjectTicker And subjectTicker <> "" Then
+        Dim companyStatus As String
+        companyStatus = Trim(wsInputs.Range("CompanyStatus").Value)
+        If LCase(companyStatus) = "publicly traded" Then
+            wsInputs.Range("H10").Value = companyName
+        End If
+        Exit Sub
+    End If
+
+    ' GPC ticker -> match to row in tblIngest, write to column C
+    Dim tblIn As ListObject
+    Set tblIn = wsInputs.ListObjects("tblIngest")
+
+    Dim i As Long
+    For i = 1 To tblIn.DataBodyRange.Rows.count
+        If StrComp(Trim(CStr(tblIn.DataBodyRange(i, 1).Value)), ticker, vbTextCompare) = 0 Then
+            ' Column C is one column right of B; DataBodyRange col 1 is B, so offset 1
+            tblIn.DataBodyRange(i, 1).Offset(0, 1).Value = companyName
+            Exit Sub
+        End If
+    Next i
+
+    Exit Sub
+
+CleanFail:
+    LogEvent "  -> Company name write FAILED for " & ticker & ": " & Err.Description
 End Sub
 
 '====================================================
@@ -869,4 +957,101 @@ End Function
 Private Function MaxL(a As Long, b As Long) As Long
     If a > b Then MaxL = a Else MaxL = b
 End Function
+
+'==========================================================
+' DIAGNOSTIC — Sniff company name anchors from MarketScreener finance page
+' Prints likely anchor candidates for a given ticker to Immediate Window
+'==========================================================
+Public Sub SniffCompanyNameAnchors()
+
+    Dim tickers As Variant
+    Dim t As Variant
+    Dim slug As String
+    Dim html As String
+    Dim httpStatus As Long
+    Dim slugDict As Object
+
+    ' Test on 3 tickers spanning different industries
+    tickers = Array("RKLB", "AMZN", "SPCX")
+
+    ' Build slugs fresh (or reuse existing dictionary if you want)
+    Set slugDict = Build_SlugDictionary()
+
+    For Each t In tickers
+
+        If Not slugDict.Exists(CStr(t)) Then
+            ' Subject ticker or missing — resolve on the fly
+            Dim shtml As String, sslug As String
+            shtml = GetQuickSearchResponse(CStr(t))
+            sslug = ExtractSlugFromQuickSearch(shtml)
+            If sslug <> "" Then slugDict(CStr(t)) = sslug
+        End If
+
+        If slugDict.Exists(CStr(t)) Then
+            slug = slugDict(CStr(t))
+            html = GetFinancePageHTML(slug, httpStatus)
+
+            Debug.Print String(70, "=")
+            Debug.Print "TICKER: " & t & "   SLUG: " & slug
+            Debug.Print "STATUS: " & httpStatus & "   LEN: " & Len(html)
+            Debug.Print String(70, "-")
+
+            ' Candidate 1: <title> tag
+            Debug.Print "TITLE:   " & ExtractBetween(html, "<title>", "</title>")
+
+            ' Candidate 2: og:title meta
+            Debug.Print "OG:TITLE: " & ExtractBetween(html, "property=""og:title"" content=""", """")
+
+            ' Candidate 3: twitter:title meta
+            Debug.Print "TW:TITLE: " & ExtractBetween(html, "name=""twitter:title"" content=""", """")
+
+            ' Candidate 4: First <h1> tag content
+            Debug.Print "H1:      " & ExtractBetween(html, "<h1", "</h1>")
+
+            ' Candidate 5: <meta name="description"...
+            Debug.Print "META DESC (first 200):"
+            Debug.Print "         " & Left(ExtractBetween(html, "name=""description"" content=""", """"), 200)
+
+            ' Candidate 6: JSON-LD name field (schema.org)
+            Debug.Print "JSON-LD name: " & ExtractBetween(html, """name"":""", """")
+
+            Application.Wait Now + TimeValue("00:00:02")
+        Else
+            Debug.Print t & " — slug not resolved, skipping"
+        End If
+
+    Next t
+
+    Debug.Print String(70, "=")
+    Debug.Print "Done. Compare the candidates above."
+
+End Sub
+
+' Helper — extract text between two markers
+Private Function ExtractBetween(ByVal html As String, ByVal startMarker As String, ByVal endMarker As String) As String
+    Dim p1 As Long, p2 As Long
+    
+    p1 = InStr(1, html, startMarker, vbTextCompare)
+    If p1 = 0 Then
+        ExtractBetween = "<not found>"
+        Exit Function
+    End If
+    
+    p1 = p1 + Len(startMarker)
+    
+    ' For h1, need to skip past attributes to the actual '>' closing bracket
+    If startMarker = "<h1" Then
+        p1 = InStr(p1, html, ">", vbTextCompare) + 1
+    End If
+    
+    p2 = InStr(p1, html, endMarker, vbTextCompare)
+    If p2 = 0 Then
+        ExtractBetween = "<end marker not found>"
+        Exit Function
+    End If
+    
+    ExtractBetween = Trim(Mid(html, p1, p2 - p1))
+End Function
+
+
 
