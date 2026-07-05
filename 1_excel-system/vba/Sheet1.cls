@@ -51,7 +51,6 @@ ErrHandler:
     MsgBox "Cost Count update failed: " & Err.Description, vbExclamation
 End Sub
 
-
 Private Sub ApplyCostCount(ByVal ws As Worksheet, _
                            ByVal firstCostRow As String, _
                            ByVal lastCostRow As String, _
@@ -93,8 +92,6 @@ Private Sub ApplyCostCount(ByVal ws As Worksheet, _
     
 End Sub
 
-
-
 Private Function GetCostCount() As Long
 
     Dim v As Variant
@@ -114,5 +111,59 @@ End Function
 Public Sub RefreshCostCount()
     UpdateCostCount_AllSheets
 End Sub
+
+'==============================================================================
+' Sheet1 (Control) — Worksheet_Change
+'
+' Watches:
+'   CompanyStatus named range  ? triggers both D and E refresh
+'   AB9                        ? triggers Pattern D (Revenue)
+'   AB20                       ? triggers Pattern E (EBITDA)
+'
+' EnableEvents guard prevents recursive firing when ApplyCalcMode
+' writes formulas back to Dash_Prjctn (different sheet, but guard is
+' cheap insurance given cross-sheet event propagation behaviour).
+'==============================================================================
+Private Sub Worksheet_Change(ByVal Target As Range)
+
+    Dim watchCS As Range
+    Dim watchD As Range
+    Dim watchE As Range
+    Dim cel As Range
+
+    On Error Resume Next
+    Set watchCS = ThisWorkbook.Names("CompanyStatus").RefersToRange
+        Set watchD = Me.Range("AB9:AD9")
+    Set watchE = Me.Range("AB16:AD18")
+    On Error GoTo 0
+
+    If watchCS Is Nothing Then Exit Sub
+    If watchD Is Nothing Then Exit Sub
+    If watchE Is Nothing Then Exit Sub
+
+    If Intersect(Target, watchCS) Is Nothing _
+       And Intersect(Target, watchD) Is Nothing _
+       And Intersect(Target, watchE) Is Nothing Then Exit Sub
+
+    Application.EnableEvents = False
+    On Error GoTo CleanUp
+
+    For Each cel In Target.Cells
+        If Not Intersect(cel, watchCS) Is Nothing _
+           Or Not Intersect(cel, watchD) Is Nothing _
+           Or Not Intersect(cel, watchE) Is Nothing Then
+            modDashBranching.RefreshDashBranching cel
+        End If
+    Next cel
+
+CleanUp:
+    Application.EnableEvents = True
+
+    If Err.Number <> 0 Then
+        Debug.Print "Sheet1.Worksheet_Change ERROR " & Err.Number & ": " & Err.Description
+    End If
+
+End Sub
+
 
 

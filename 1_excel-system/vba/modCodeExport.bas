@@ -130,7 +130,7 @@ Private Function ExportPowerQueries(ByVal targetDir As String) As Long
         
         ff = FreeFile
         Open outPath For Output As #ff
-        Print #ff, q.Formula
+        Print #ff, q.formula
         Close #ff
         
         count = count + 1
