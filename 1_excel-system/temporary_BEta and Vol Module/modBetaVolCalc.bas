@@ -7,6 +7,11 @@
 '==========================================================
 Option Explicit
 
+' Module-level cache: YEARFRAC term (rounded to 0.001) for each row in Prices_Wide
+' Populated by LoadPricesWide, used by ComputeVolatility for exact sheet parity
+Private mTerms() As Double
+Private mTermsCount As Long
+
 ' ---- Constants ----
 Private Const TRADING_DAYS_PER_YEAR As Long = 252
 Private Const WEEKLY_STEP As Long = 5          ' trading days per weekly obs
@@ -113,7 +118,10 @@ End Sub
 ' HELPERS
 '==========================================================
 
-' Load Prices_Wide sheet into 2D arrays
+' Load Prices_Wide sheet into 2D arrays.
+' Also precomputes MROUND(YEARFRAC(date_i, ValuationDate, 1), 0.001) for each row
+' into module-level mTerms(), matching column B of Manual_Vol_Calc exactly.
+' Note: Prices_Wide is sorted DESCENDING (newest first).
 Private Sub LoadPricesWide(ByRef dataOut As Variant, ByRef headersOut As Variant)
     Dim ws As Worksheet: Set ws = ThisWorkbook.Sheets(SHEET_PRICES)
     Dim lastRow As Long, lastCol As Long
@@ -122,6 +130,23 @@ Private Sub LoadPricesWide(ByRef dataOut As Variant, ByRef headersOut As Variant
     
     headersOut = ws.Range(ws.Cells(1, 1), ws.Cells(1, lastCol)).Value
     dataOut = ws.Range(ws.Cells(2, 1), ws.Cells(lastRow, lastCol)).Value
+    
+    ' Precompute terms for every date row using the same formula as sheet col B:
+    ' MROUND(YEARFRAC(date, ValuationDate, 1), 0.001)
+    Dim valDate As Date
+    valDate = CDate(Range("ValuationDate").Value)
+    
+    Dim totalRows As Long: totalRows = UBound(dataOut, 1)
+    ReDim mTerms(1 To totalRows)
+    mTermsCount = totalRows
+    
+    Dim i As Long
+    Dim rawYearFrac As Double
+    For i = 1 To totalRows
+        rawYearFrac = Application.WorksheetFunction.YearFrac(CDate(dataOut(i, 1)), valDate, 1)
+        ' MROUND to 0.001
+        mTerms(i) = Application.WorksheetFunction.MRound(rawYearFrac, 0.001)
+    Next i
 End Sub
 
 ' Find column index of a header (1-based). Returns 0 if not found.
@@ -154,9 +179,9 @@ Private Sub ProcessTicker(pricesData As Variant, headers As Variant, _
     ExtractAlignedSeries pricesData, tickerCol, indexCol, datesA, tickerA, indexA, nA
     
     ' Series B: ticker only ? VOL and YearsAvailable
-    Dim datesB() As Date, tickerB() As Double
+    Dim datesB() As Date, tickerB() As Double, termsB() As Double
     Dim nB As Long
-    ExtractTickerOnlySeries pricesData, tickerCol, datesB, tickerB, nB
+    ExtractTickerOnlySeries pricesData, tickerCol, datesB, tickerB, termsB, nB
     
     ' Years available = based on ticker's own history
     Dim yearsAvail As Double
@@ -206,15 +231,17 @@ Private Sub ProcessTicker(pricesData As Variant, headers As Variant, _
     results(resultRow, 4) = raw5y
     results(resultRow, 5) = adj5y
     
-    ' Volatility (single-series, ticker only)
+    ' Volatility (single-series, ticker only, YEARFRAC-anchored to match sheet)
     Dim volTermUsed As Double
     volTermUsed = Application.Min(effectiveVolTerm, yearsAvail)
     results(resultRow, 7) = volTermUsed
-    results(resultRow, 8) = ComputeVolatility(tickerB, nB, volTermUsed)
+    Debug.Print "--- Ticker: " & ticker & " ---"
+    results(resultRow, 8) = ComputeVolatility(datesB, tickerB, termsB, nB, volTermUsed)
 End Sub
 
 ' Extract dates + ticker prices + index prices where BOTH are non-null
-' Used for beta (regression requires paired observations)
+' Prices_Wide is sorted descending (newest first); we reverse to ascending
+' so downstream calcs (which assume index 1 = oldest, n = newest) work unchanged
 Private Sub ExtractAlignedSeries(pricesData As Variant, tickerCol As Long, indexCol As Long, _
                                  ByRef dates() As Date, ByRef tickerPrices() As Double, _
                                  ByRef indexPrices() As Double, ByRef n As Long)
@@ -236,16 +263,23 @@ Private Sub ExtractAlignedSeries(pricesData As Variant, tickerCol As Long, index
         End If
     Next i
     n = count
+    
+    ' Reverse arrays: source is descending, downstream calcs expect ascending
+    ReverseDateArray dates, n
+    ReverseDoubleArray tickerPrices, n
+    ReverseDoubleArray indexPrices, n
 End Sub
 
-' Extract dates + ticker prices where TICKER is non-null (ignores index)
-' Used for vol and YearsAvailable (single-series metrics)
+' Extract dates + ticker prices + per-row terms where TICKER is non-null.
+' Used for vol and YearsAvailable (single-series metrics).
+' Prices_Wide is sorted descending; we reverse to ascending for downstream calcs.
 Private Sub ExtractTickerOnlySeries(pricesData As Variant, tickerCol As Long, _
                                     ByRef dates() As Date, ByRef tickerPrices() As Double, _
-                                    ByRef n As Long)
+                                    ByRef terms() As Double, ByRef n As Long)
     Dim totalRows As Long: totalRows = UBound(pricesData, 1)
     ReDim dates(1 To totalRows)
     ReDim tickerPrices(1 To totalRows)
+    ReDim terms(1 To totalRows)
     
     Dim i As Long, count As Long
     count = 0
@@ -255,10 +289,16 @@ Private Sub ExtractTickerOnlySeries(pricesData As Variant, tickerCol As Long, _
                 count = count + 1
                 dates(count) = CDate(pricesData(i, 1))
                 tickerPrices(count) = CDbl(pricesData(i, tickerCol))
+                terms(count) = mTerms(i)
             End If
         End If
     Next i
     n = count
+    
+    ' Reverse arrays: source is descending, downstream calcs expect ascending
+    ReverseDateArray dates, n
+    ReverseDoubleArray tickerPrices, n
+    ReverseDoubleArray terms, n
 End Sub
 
 ' Actual years of data: (maxDate - minDate) / 365.25
@@ -267,7 +307,7 @@ Private Function ComputeYearsAvailable(dates() As Date, n As Long) As Double
         ComputeYearsAvailable = 0
         Exit Function
     End If
-    ComputeYearsAvailable = (dates(n) - dates(1)) / 365.25
+    ComputeYearsAvailable = Abs(dates(1) - dates(n)) / 365.25
 End Function
 
 ' Compute beta using step-back resampling
@@ -306,22 +346,31 @@ Private Function ComputeBeta(tickerPrices() As Double, indexPrices() As Double, 
     On Error GoTo 0
 End Function
 
-' Compute annualized volatility from log returns over volTermUsed years
-Private Function ComputeVolatility(tickerPrices() As Double, n As Long, _
+' Compute annualized volatility from log returns.
+' Replicates sheet exactly: uses all rows where terms(i) <= volTermUsed.
+' terms() is MROUND(YEARFRAC(date_i, ValuationDate, 1), 0.001), matching sheet col B.
+Private Function ComputeVolatility(dates() As Date, tickerPrices() As Double, _
+                                   terms() As Double, n As Long, _
                                    volTermUsed As Double) As Variant
     If volTermUsed <= 0 Or n < 2 Then
         ComputeVolatility = CVErr(xlErrNA)
         Exit Function
     End If
     
-    Dim daysWanted As Long
-    daysWanted = CLng(volTermUsed * TRADING_DAYS_PER_YEAR)
-    
+    ' Find smallest startIdx (in ascending order) where terms(startIdx) <= volTermUsed
+    ' i.e., the oldest date whose Term is within the window
     Dim startIdx As Long
-    startIdx = n - daysWanted
-    If startIdx < 1 Then startIdx = 1
+    startIdx = 1
+    Do While startIdx < n
+        If terms(startIdx) <= volTermUsed Then Exit Do
+        startIdx = startIdx + 1
+    Loop
     
     Dim retCount As Long: retCount = n - startIdx
+    Debug.Print "VOL: n=" & n & ", volTerm=" & volTermUsed & _
+                ", startIdx=" & startIdx & ", startTerm=" & terms(startIdx) & _
+                ", startDate=" & Format(dates(startIdx), "m/d/yyyy") & _
+                ", retCount=" & retCount
     If retCount < 2 Then
         ComputeVolatility = CVErr(xlErrNA)
         Exit Function
@@ -335,7 +384,7 @@ Private Function ComputeVolatility(tickerPrices() As Double, n As Long, _
     Next i
     
     On Error Resume Next
-    ComputeVolatility = Application.WorksheetFunction.StDev(logReturns) * Sqr(TRADING_DAYS_PER_YEAR)
+    ComputeVolatility = Application.WorksheetFunction.StDev_P(logReturns) * Sqr(TRADING_DAYS_PER_YEAR)
     If Err.Number <> 0 Then ComputeVolatility = CVErr(xlErrNA)
     On Error GoTo 0
 End Function
@@ -366,5 +415,25 @@ Private Sub WriteResults(results As Variant, rowCount As Long)
     ws.Columns("F:G").NumberFormat = "0.00"
     ws.Columns("H").NumberFormat = "0.00%"
     ws.Columns.AutoFit
+End Sub
+
+' Reverse a Double array in place, elements 1 to n
+Private Sub ReverseDoubleArray(ByRef arr() As Double, n As Long)
+    Dim i As Long, tmp As Double
+    For i = 1 To n \ 2
+        tmp = arr(i)
+        arr(i) = arr(n - i + 1)
+        arr(n - i + 1) = tmp
+    Next i
+End Sub
+
+' Reverse a Date array in place, elements 1 to n
+Private Sub ReverseDateArray(ByRef arr() As Date, n As Long)
+    Dim i As Long, tmp As Date
+    For i = 1 To n \ 2
+        tmp = arr(i)
+        arr(i) = arr(n - i + 1)
+        arr(n - i + 1) = tmp
+    Next i
 End Sub
 

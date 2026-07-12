@@ -1,11 +1,3 @@
-// =========================================================
-// Prices_Wide
-// Combines Index_Prices + ALL_TickerPrices into a wide-format
-// AdjClose matrix: one Date column + one column per ticker.
-//
-// Column order: Date, IndexTicker, then tickers in tblTickers order
-// Values: AdjClose (nulls where ticker had no data on that date)
-// =========================================================
 let
     // Load both source tables (AdjClose only)
     IndexRaw = Index_Prices,
@@ -26,8 +18,8 @@ let
         List.Sum
     ),
     
-    // Sort by date ascending
-    Sorted = Table.Sort(Pivoted, {{"Date", Order.Ascending}}),
+    // Sort by date DESCENDING (newest first) to match Manual_Vol_Calc layout
+    Sorted = Table.Sort(Pivoted, {{"Date", Order.Descending}}),
     
     // Reorder: Date first, Index second, then tickers in tblTickers order
     IndexTicker = Excel.CurrentWorkbook(){[Name="SelectedIndexTicker"]}[Content]{0}[Column1],
