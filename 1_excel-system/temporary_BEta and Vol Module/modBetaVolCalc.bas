@@ -205,7 +205,7 @@ Private Sub ProcessTicker(pricesData As Variant, headers As Variant, _
         raw2y = CVErr(xlErrNA)
         adj2y = CVErr(xlErrNA)
     Else
-        raw2y = ComputeBeta(tickerA, indexA, nA, WEEKLY_STEP, WEEKLY_OBS_NEEDED)
+        raw2y = ComputeBeta(datesA, tickerA, indexA, nA, WEEKLY_STEP, WEEKLY_OBS_NEEDED)
         If IsError(raw2y) Then
             adj2y = CVErr(xlErrNA)
         Else
@@ -221,7 +221,7 @@ Private Sub ProcessTicker(pricesData As Variant, headers As Variant, _
         raw5y = CVErr(xlErrNA)
         adj5y = CVErr(xlErrNA)
     Else
-        raw5y = ComputeBeta(tickerA, indexA, nA, MONTHLY_STEP, MONTHLY_OBS_NEEDED)
+        raw5y = ComputeBeta(datesA, tickerA, indexA, nA, MONTHLY_STEP, MONTHLY_OBS_NEEDED)
         If IsError(raw5y) Then
             adj5y = CVErr(xlErrNA)
         Else
@@ -310,40 +310,100 @@ Private Function ComputeYearsAvailable(dates() As Date, n As Long) As Double
     ComputeYearsAvailable = Abs(dates(1) - dates(n)) / 365.25
 End Function
 
-' Compute beta using step-back resampling
-Private Function ComputeBeta(tickerPrices() As Double, indexPrices() As Double, _
+Private Function ComputeBeta(dates() As Date, tickerPrices() As Double, indexPrices() As Double, _
                              n As Long, stepSize As Long, obsNeeded As Long) As Variant
+    
     Dim pricesNeeded As Long: pricesNeeded = obsNeeded + 1
-    Dim totalStepsNeeded As Long: totalStepsNeeded = (pricesNeeded - 1) * stepSize
-    
-    If n <= totalStepsNeeded Then
-        ComputeBeta = CVErr(xlErrNA)
-        Exit Function
-    End If
-    
     Dim sampledTicker() As Double, sampledIndex() As Double
     ReDim sampledTicker(1 To pricesNeeded)
     ReDim sampledIndex(1 To pricesNeeded)
     
-    Dim i As Long, sourceIdx As Long
-    For i = 1 To pricesNeeded
-        sourceIdx = n - (pricesNeeded - i) * stepSize
+    Dim i As Long, sourceIdx As Long, targetDate As Date
+    Dim latestDate As Date: latestDate = dates(n) ' dates() is ascending (1=old, n=new)
+    
+    ' --- STEP 1: DEFINE ANCHOR ---
+    ' This ensures the VBA starts on the same day as your worksheet
+    Dim anchorDate As Date
+    If stepSize = WEEKLY_STEP Then
+        ' Snap to the most recent Friday (vbFriday = Friday is day 1)
+        anchorDate = latestDate - (Weekday(latestDate, vbFriday) - 1)
+    Else
+        ' Snap to the most recent Month-End
+        anchorDate = DateSerial(Year(latestDate), Month(latestDate) + 1, 0)
+        ' If the calculated EOM is in the future relative to our data, go back 1 month
+        If anchorDate > latestDate Then anchorDate = DateSerial(Year(latestDate), Month(latestDate), 0)
+    End If
+
+    Debug.Print "--- START BETA CALC: " & IIf(stepSize = 5, "2YW", "5YM") & " ---"
+    Debug.Print "Anchor Date set to: " & Format(anchorDate, "mm/dd/yyyy")
+
+    ' --- STEP 2: CALENDAR SAMPLING ---
+    For i = pricesNeeded To 1 Step -1
+        Dim offset As Long: offset = pricesNeeded - i
+        
+        If stepSize = WEEKLY_STEP Then
+            ' Go back exactly 'offset' weeks from anchor
+            targetDate = DateAdd("ww", -offset, anchorDate)
+        Else
+            ' Go back exactly 'offset' months from anchor (EOMONTH equivalent)
+            targetDate = DateSerial(Year(anchorDate), Month(anchorDate) - offset + 1, 0)
+        End If
+        
+        ' Find the row index (MAXIFS logic)
+        sourceIdx = FindRowForDate(dates, n, targetDate)
+        
+        ' DEBUGGER: Compare this to your worksheet rows
+        Debug.Print "Obs " & i & " | Target: " & Format(targetDate, "mm/dd/yy") & _
+                    " | Found: " & Format(dates(sourceIdx), "mm/dd/yy") & _
+                    " | RowIdx: " & sourceIdx
+
+        ' Insufficient Data Guard
+        If sourceIdx <= 1 And i > 1 Then
+            Debug.Print "!!! INSUFFICIENT DATA AT OBS " & i
+            ComputeBeta = CVErr(xlErrNA)
+            Exit Function
+        End If
+
         sampledTicker(i) = tickerPrices(sourceIdx)
         sampledIndex(i) = indexPrices(sourceIdx)
     Next i
     
+    ' --- STEP 3: SIMPLE RETURNS (New/Old - 1) ---
     Dim tickerRet() As Double, indexRet() As Double
     ReDim tickerRet(1 To obsNeeded)
     ReDim indexRet(1 To obsNeeded)
+    
     For i = 1 To obsNeeded
-        tickerRet(i) = (sampledTicker(i + 1) / sampledTicker(i)) - 1
-        indexRet(i) = (sampledIndex(i + 1) / sampledIndex(i)) - 1
+        If sampledTicker(i) <> 0 And sampledIndex(i) <> 0 Then
+            tickerRet(i) = (sampledTicker(i + 1) / sampledTicker(i)) - 1
+            indexRet(i) = (sampledIndex(i + 1) / sampledIndex(i)) - 1
+        Else
+            ComputeBeta = CVErr(xlErrNA)
+            Exit Function
+        End If
     Next i
     
+    ' --- STEP 4: SLOPE ---
     On Error Resume Next
     ComputeBeta = Application.WorksheetFunction.Slope(tickerRet, indexRet)
     If Err.Number <> 0 Then ComputeBeta = CVErr(xlErrNA)
+    Debug.Print "Calculated Beta: " & ComputeBeta
+    Debug.Print "--- END BETA CALC ---"
     On Error GoTo 0
+End Function
+
+' Helper function required by ComputeBeta
+Private Function FindRowForDate(dates() As Date, n As Long, target As Date) As Long
+    Dim i As Long
+    ' dates() is sorted ascending (1 is oldest, n is newest)
+    ' We search backwards from newest to find the first date <= target
+    For i = n To 1 Step -1
+        If dates(i) <= target Then
+            FindRowForDate = i
+            Exit Function
+        End If
+    Next i
+    FindRowForDate = 1 ' Fallback to oldest if target is before data starts
 End Function
 
 ' Compute annualized volatility from log returns.
