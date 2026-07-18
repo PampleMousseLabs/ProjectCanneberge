@@ -21,13 +21,13 @@ Notation: Phase > Section (#.#) > Sub-topic (#.#.#) > Artifact (filename)
 | 1.2 | Data transformation — tier 1 | Complete |
 | 1.3 | Data transformation — tier 2 | Complete |
 | 1.4 | Calculation layer | Complete |
-| 1.5 | Report output | In progress |
+| 1.5 | Report output | Complete |
 
 ### Phase 2 — Refinement and documentation
 | Section | Name | Status |
 |---|---|---|
-| 2.1 | Input reduction | In progress |
-| 2.2 | Model specification | In progress |
+| 2.1 | Input reduction | Complete |
+| 2.2 | Model specification | Complete |
 | 2.3 | Testing and validation | In progress |
 
 ### Phase 3 — Code migration

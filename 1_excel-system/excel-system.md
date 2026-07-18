@@ -1,7 +1,6 @@
 # Phase 1 — Excel System
 
-> Last updated: 2026-07-03
-
+> Last updated: 2026-07/17
 ## Overview
 
 The Excel system is the first phase of Project Canneberge. It is a fully functional ETL pipeline and valuation model built inside a macro-enabled Excel workbook (`Project_Canneberge.xlsm`). The system ingests financial data from stockanalysis.com, MarketScreener.com, and fred.stlouisfed.org, transforms it into a clean master lookup table, and feeds a multi-approach business enterprise valuation model.
@@ -12,7 +11,7 @@ The system is organized into five sections:
 - **1.2 Tier 1 Transforms** — Combiner queries that loop tickers and stack results per statement type
 - **1.3 Tier 2 Transform** — Master table (`ALL_FINANCIALS`) combining all statements into one long/tall lookup table
 - **1.4 Calculation Layer** — Excel worksheet formulas, valuation approaches, and supporting schedules
-- **1.5 Report Output** — Dashboard, projection controls, and valuation summary (in progress)
+- **1.5 Report Output** — Dashboard, projection controls, and valuation summary (Complete/always in progress)
 
 ---
 
@@ -49,6 +48,7 @@ The system is organized into five sections:
 │ ├── modNAVtoggle.bas
 │ ├── modPriceFunctions.bas
 │ ├── modProjectionToggle.bas
+│ ├── modBetaVolCalc.bas
 │ ├── modRibbonCallbacks.bas
 │ └── (+ 40 sheet code-behind .cls files)
 │
@@ -70,7 +70,11 @@ The system is organized into five sections:
 │ ├── fnFRED.m
 │ ├── fnIS.m
 │ ├── fnRatio.m
-│ └── fnSchemaLock.m
+│ ├── fnSchemaLock.m
+│ ├── ALL_TickerPrices.m
+│ ├── fnPriceHistory.m
+│ ├── Index_prices.m
+│ └── Prices_wide.m
 │
 └── RibbonX/ ← manually maintained
 └── customUI14.xml
