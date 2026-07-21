@@ -17,17 +17,18 @@ from PyQt6.QtGui import QFont
 # =========================================================
 # WORKER THREAD FOR DATA PULLING
 # =========================================================
-class StockAnalysisScraper(QThread):
+class MultiTickerScraper(QThread):
     finished = pyqtSignal()
     error = pyqtSignal(str)
     results = pyqtSignal(list, str)  # (rows for display, statement_type)
+    progress = pyqtSignal(str)  # Progress updates
     
-    def __init__(self, ticker, historical_years, statement_type):
+    def __init__(self, tickers, historical_years, statement_type):
         super().__init__()
-        self.ticker = ticker
-        self.historical_years = historical_years  # e.g., 5 (pull TTM, LFY, LFY-1, ..., LFY-4)
-        self.statement_type = statement_type  # 'IS', 'BS', or 'CFS'
-        self.lfy = self._calculate_lfy()  # Last Fiscal Year
+        self.tickers = tickers
+        self.historical_years = historical_years
+        self.statement_type = statement_type
+        self.lfy = self._calculate_lfy()
     
     def _calculate_lfy(self):
         """Calculate Last Fiscal Year from Excel Control sheet or assume current year"""
@@ -40,93 +41,85 @@ class StockAnalysisScraper(QThread):
                 return fy_end.year
         except:
             pass
-        # Fallback: assume current year or previous year based on date
         return datetime.now().year
     
     def run(self):
-        try:
-            # Build URL based on statement type
-            if self.statement_type == 'IS':
-                url = f"https://stockanalysis.com/stocks/{self.ticker.lower()}/financials/"
-            elif self.statement_type == 'BS':
-                url = f"https://stockanalysis.com/stocks/{self.ticker.lower()}/financials/balance-sheet/"
-            elif self.statement_type == 'CFS':
-                url = f"https://stockanalysis.com/stocks/{self.ticker.lower()}/financials/cash-flow-statement/"
-            else:
-                self.error.emit(f"Unknown statement type: {self.statement_type}")
-                return
-            
-            # Fetch and parse HTML
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
-            response = requests.get(url, headers=headers, timeout=10)
-            response.raise_for_status()
-            
-            soup = BeautifulSoup(response.content, 'html.parser')
-            
-            # Find all tables
-            tables = soup.find_all('table')
-            if not tables:
-                self.error.emit(f"No tables found for {self.statement_type}")
-                return
-            
-            # Select first table with >5 rows and >2 columns (matches Power Query logic)
-            raw_table = None
-            for table in tables:
-                rows = table.find_all('tr')
-                cols = table.find_all('th')
-                if len(rows) > 5 and len(cols) > 2:
-                    raw_table = table
-                    break
-            
-            if raw_table is None:
-                self.error.emit(f"No suitable table found for {self.statement_type}")
-                return
-            
-            # Parse table to DataFrame
-            df = self._parse_table_to_dataframe(raw_table)
-            
-            if df.empty:
-                self.error.emit(f"Empty table for {self.statement_type}")
-                return
-            
-            # Clean data (fnCleanFinancialTable logic)
-            df = self._clean_financial_table(df)
-            
-            # Rename first column to "Line Item"
-            first_col = df.columns[0]
-            df.rename(columns={first_col: 'Line Item'}, inplace=True)
-            
-            # Map year columns dynamically
-            df = self._map_year_columns(df)
-            
-            # Add Ticker column
-            df['Ticker'] = self.ticker.lower()
-            
-            # Add Key column (Ticker|Line Item)
-            df['Key'] = df['Ticker'] + '|' + df['Line Item'].str.lower()
-            
-            # Reorder columns: Ticker, Line Item, TTM, then descending years, then Key
-            cols_order = ['Ticker', 'Line Item', 'TTM']
-            
-            # Extract year columns and sort descending
-            year_cols = [col for col in df.columns if col.isdigit()]
-            year_cols = sorted(year_cols, key=int, reverse=True)
-            cols_order.extend(year_cols)
-            cols_order.append('Key')
-            
-            # Keep only valid columns
-            cols_order = [col for col in cols_order if col in df.columns]
-            df = df[cols_order]
-            
-            # Convert to list of dicts for display
-            results = df.to_dict('records')
-            self.results.emit(results, self.statement_type)
-            self.finished.emit()
+        """Scrape all tickers and aggregate results"""
+        all_results = []
         
-        except Exception as e:
-            self.error.emit(f"Scrape error: {str(e)}")
+        for idx, ticker in enumerate(self.tickers):
+            self.progress.emit(f"Scraping {ticker} ({idx + 1}/{len(self.tickers)})...")
+            
+            try:
+                # Build URL
+                if self.statement_type == 'IS':
+                    url = f"https://stockanalysis.com/stocks/{ticker.lower()}/financials/"
+                elif self.statement_type == 'BS':
+                    url = f"https://stockanalysis.com/stocks/{ticker.lower()}/financials/balance-sheet/"
+                elif self.statement_type == 'CFS':
+                    url = f"https://stockanalysis.com/stocks/{ticker.lower()}/financials/cash-flow-statement/"
+                else:
+                    self.error.emit(f"Unknown statement type: {self.statement_type}")
+                    return
+                
+                # Fetch and parse
+                headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+                response = requests.get(url, headers=headers, timeout=10)
+                response.raise_for_status()
+                
+                soup = BeautifulSoup(response.content, 'html.parser')
+                tables = soup.find_all('table')
+                
+                if not tables:
+                    self.progress.emit(f"  {ticker}: No tables found")
+                    continue
+                
+                # Select first suitable table
+                raw_table = None
+                for table in tables:
+                    rows = table.find_all('tr')
+                    cols = table.find_all('th')
+                    if len(rows) > 5 and len(cols) > 2:
+                        raw_table = table
+                        break
+                
+                if raw_table is None:
+                    self.progress.emit(f"  {ticker}: No suitable table")
+                    continue
+                
+                # Parse and clean
+                df = self._parse_table_to_dataframe(raw_table)
+                df = self._clean_financial_table(df)
+                
+                # Rename first column
+                first_col = df.columns[0]
+                df.rename(columns={first_col: 'Line Item'}, inplace=True)
+                
+                # Map years
+                df = self._map_year_columns(df)
+                
+                # Add metadata
+                df['Ticker'] = ticker.lower()
+                df['Key'] = df['Ticker'] + '|' + df['Line Item'].str.lower()
+                
+                # Reorder columns
+                cols_order = ['Ticker', 'Line Item', 'TTM']
+                year_cols = [col for col in df.columns if col.isdigit()]
+                year_cols = sorted(year_cols, key=int, reverse=True)
+                cols_order.extend(year_cols)
+                cols_order.append('Key')
+                cols_order = [col for col in cols_order if col in df.columns]
+                df = df[cols_order]
+                
+                # Append to results
+                all_results.extend(df.to_dict('records'))
+                self.progress.emit(f"  {ticker}: OK ({len(df)} rows)")
+            
+            except Exception as e:
+                self.progress.emit(f"  {ticker}: Error - {str(e)}")
+        
+        self.results.emit(all_results, self.statement_type)
+        self.finished.emit()
     
     def _parse_table_to_dataframe(self, table):
         """Parse HTML table to DataFrame"""
@@ -135,7 +128,7 @@ class StockAnalysisScraper(QThread):
             headers.append(th.get_text(strip=True))
         
         rows = []
-        for tr in table.find_all('tr')[1:]:  # Skip header row
+        for tr in table.find_all('tr')[1:]:
             cols = []
             for td in tr.find_all('td'):
                 cols.append(td.get_text(strip=True))
@@ -148,31 +141,27 @@ class StockAnalysisScraper(QThread):
         return pd.DataFrame(rows, columns=headers[:len(rows[0])])
     
     def _clean_financial_table(self, df):
-        """Clean junk values (fnCleanFinancialTable logic)"""
+        """Clean junk values"""
         junk_values = ['-', 'N/A', 'NA', '', '—', None]
         
         for col in df.columns:
             df[col] = df[col].replace(junk_values, None)
-            # Trim text fields
             if df[col].dtype == 'object':
                 df[col] = df[col].apply(lambda x: x.strip() if isinstance(x, str) else x)
         
         return df
     
     def _map_year_columns(self, df):
-        """Map FY columns to year numbers (TTM, LFY, LFY-1, LFY-2, etc.)"""
-        # Build list of years to map: TTM, LFY, LFY-1, LFY-2, ..., LFY-historical_years
+        """Map FY columns to year numbers"""
         target_years = [self.lfy - i for i in range(self.historical_years)]
         fy_labels = [f"FY {y}" for y in target_years]
         
         rename_map = {}
         for col in df.columns:
             col_str = str(col)
-            # TTM stays as TTM
             if col_str.startswith('TTM') or col_str == 'TTM':
                 rename_map[col] = 'TTM'
             else:
-                # Try to match FY columns
                 for fy_label, year in zip(fy_labels, target_years):
                     if fy_label in col_str:
                         rename_map[col] = str(year)
@@ -204,10 +193,10 @@ class StockAnalysisScraperApp(QMainWindow):
         # Input panel
         input_layout = QHBoxLayout()
         
-        input_layout.addWidget(QLabel("Ticker:"))
-        self.ticker_input = QLineEdit()
-        self.ticker_input.setText("AAPL")
-        input_layout.addWidget(self.ticker_input)
+        input_layout.addWidget(QLabel("Tickers (comma-separated):"))
+        self.tickers_input = QLineEdit()
+        self.tickers_input.setText("AAPL, MSFT, NVDA, GOOG, AMZN")
+        input_layout.addWidget(self.tickers_input)
         
         input_layout.addWidget(QLabel("Historical Years:"))
         self.hist_years_input = QSpinBox()
@@ -244,23 +233,29 @@ class StockAnalysisScraperApp(QMainWindow):
             self.status_label.setText("Scrape already in progress...")
             return
         
-        ticker = self.ticker_input.text().strip()
+        tickers_str = self.tickers_input.text()
+        tickers = [t.strip() for t in tickers_str.split(",") if t.strip()]
         hist_years = self.hist_years_input.value()
         statement = self.statement_combo.currentText()
         
-        if not ticker:
-            self.status_label.setText("Enter a ticker")
+        if not tickers:
+            self.status_label.setText("Enter at least one ticker")
             return
         
-        self.status_label.setText(f"Scraping {ticker} {statement}...")
+        self.status_label.setText(f"Scraping {len(tickers)} tickers for {statement}...")
         self.scrape_btn.setEnabled(False)
         
-        self.worker = StockAnalysisScraper(ticker, hist_years, statement)
+        self.worker = MultiTickerScraper(tickers, hist_years, statement)
         self.worker.results.connect(self._display_results)
         self.worker.error.connect(self._on_error)
+        self.worker.progress.connect(self._on_progress)
         self.worker.finished.connect(self._on_finished)
         self.worker.start()
     
+    def _on_progress(self, message):
+            """Handle progress updates"""
+            self.status_label.setText(message)
+
     def _display_results(self, results, statement_type):
         """Display results in table"""
         if not results:
