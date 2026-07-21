@@ -8,7 +8,7 @@ import pandas as pd
 import openpyxl
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem
+    QLabel, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QSpinBox
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QThread
 from PyQt6.QtGui import QFont
@@ -27,7 +27,7 @@ class MultiStatementScraper(QThread):
         self.tickers = tickers
         self.historical_years = historical_years
         self.lfy = self._calculate_lfy()
-        self.statements = ['IS', 'BS', 'CFS']
+        self.statements = ['IS', 'BS', 'CFS', 'Ratios']
     
     def _calculate_lfy(self):
         """Calculate Last Fiscal Year from Excel"""
@@ -72,6 +72,8 @@ class MultiStatementScraper(QThread):
             url = f"https://stockanalysis.com/stocks/{ticker.lower()}/financials/balance-sheet/"
         elif statement_type == 'CFS':
             url = f"https://stockanalysis.com/stocks/{ticker.lower()}/financials/cash-flow-statement/"
+        elif statement_type == 'Ratios':
+            url = f"https://stockanalysis.com/stocks/{ticker.lower()}/financials/ratios/"
         else:
             return None
         
@@ -114,19 +116,37 @@ class MultiStatementScraper(QThread):
         
         df = self._clean_financial_table(df)
         
-        # Rename first column
+        # Rename first column to 'Line Item'
         first_col = df.columns[0]
         df.rename(columns={first_col: 'Line Item'}, inplace=True)
         
-        # Map data columns by position: TTM, LFY, LFY-1, LFY-2, LFY-3, LFY-4
-        data_cols = list(df.columns[1:])  # All columns after Line Item
-        col_names = ['TTM', 'LFY', 'LFY-1', 'LFY-2', 'LFY-3', 'LFY-4']
-        
+        # Map columns by actual header content dynamically, not position
         rename_map = {}
-        for i, col in enumerate(data_cols):
-            if i < len(col_names):
-                rename_map[col] = col_names[i]
-        
+        fy_cols = {}
+
+        for col in df.columns[1:]:
+            header = str(col).strip()
+            upper_hdr = header.upper()
+
+            # "Current" is used on the Ratios page instead of TTM/LTM
+            if upper_hdr in ('TTM', 'LTM', 'CURRENT'):
+                rename_map[col] = 'TTM'
+            elif header.startswith('FY'):
+                # Extract year and keep for sorting
+                try:
+                    year = int(header.replace('FY', '').strip())
+                    fy_cols[year] = col
+                except ValueError:
+                    pass
+
+        # Sort FY years descending: highest = LFY
+        for idx, year in enumerate(sorted(fy_cols.keys(), reverse=True)):
+            col = fy_cols[year]
+            if idx == 0:
+                rename_map[col] = 'LFY'
+            else:
+                rename_map[col] = f'LFY-{idx}'
+
         if rename_map:
             df.rename(columns=rename_map, inplace=True)
         
@@ -134,37 +154,45 @@ class MultiStatementScraper(QThread):
         df['Ticker'] = ticker.lower()
         df['Key'] = df['Ticker'] + '|' + df['Line Item'].str.lower()
         
-      # Reorder columns based on historical_years: TTM + (historical_years columns)
-        cols_order = ['Ticker', 'Line Item', 'TTM']
-        fy_cols = ['LFY', 'LFY-1', 'LFY-2', 'LFY-3', 'LFY-4']
-        # Add only up to historical_years
-        cols_order.extend(fy_cols[:self.historical_years])
-        cols_order.append('Key')
-        cols_order = [col for col in cols_order if col in df.columns]
-        df = df[cols_order]
-        
         return df
     
     def _parse_table_to_dataframe(self, table):
-        """Parse HTML table - grab ALL cells regardless of structure"""
-        all_cells = []
-        
-        for tr in table.find_all('tr'):
-            row_cells = []
-            for td in tr.find_all('td'):
-                row_cells.append(td.get_text(strip=True))
-            if row_cells:
-                all_cells.append(row_cells)
-        
-        if len(all_cells) < 2:
+        """Parse HTML table including header + data cells."""
+        html_rows = table.find_all('tr')
+        if not html_rows:
             return pd.DataFrame()
-        
-        # First row = headers, rest = data
-        headers = all_cells[0]
-        data = all_cells[1:]
-        
-        print(f"DEBUG: Headers={len(headers)}, First data row={len(data[0]) if data else 0}")
-        
+
+        # Real header row (usually <th>)
+        header_cells = html_rows[0].find_all(['th', 'td'])
+        headers = [c.get_text(strip=True) for c in header_cells]
+        if len(headers) < 2:
+            return pd.DataFrame()
+
+        data = []
+        for tr in html_rows[1:]:
+            # Include both th/td so first line items are not dropped
+            cells = tr.find_all(['th', 'td'])
+            row = [c.get_text(strip=True) for c in cells]
+            if not row:
+                continue
+
+            # Skip metadata rows
+            first = row[0].strip().lower()
+            if first in {'fiscal year', 'period ending'}:
+                continue
+
+            # Normalize width
+            if len(row) < len(headers):
+                row.extend([None] * (len(headers) - len(row)))
+            elif len(row) > len(headers):
+                row = row[:len(headers)]
+
+            data.append(row)
+
+        if not data:
+            return pd.DataFrame()
+
+        print(f"DEBUG: Headers={len(headers)}, First data row={len(data[0])}, First line item={data[0][0]}")
         return pd.DataFrame(data, columns=headers)
     
     def _clean_financial_table(self, df):
@@ -209,11 +237,11 @@ class StockAnalysisScraperApp(QMainWindow):
         input_layout.addWidget(self.tickers_input)
         
         input_layout.addWidget(QLabel("Historical Years:"))
-        from PyQt6.QtWidgets import QSpinBox
         self.hist_years_input = QSpinBox()
         self.hist_years_input.setValue(5)
         self.hist_years_input.setMinimum(0)
         self.hist_years_input.setMaximum(5)
+        self.hist_years_input.valueChanged.connect(self._on_hist_years_changed)
         input_layout.addWidget(self.hist_years_input)
         
         self.scrape_btn = QPushButton("SCRAPE ALL")
@@ -226,7 +254,7 @@ class StockAnalysisScraperApp(QMainWindow):
         # Statement toggle buttons
         toggle_layout = QHBoxLayout()
         toggle_layout.addWidget(QLabel("View:"))
-        for stmt in ['IS', 'BS', 'CFS']:
+        for stmt in ['IS', 'BS', 'CFS', 'Ratios']:
             btn = QPushButton(stmt)
             btn.setCheckable(True)
             btn.clicked.connect(lambda checked, s=stmt: self._on_statement_toggle(s))
@@ -261,7 +289,7 @@ class StockAnalysisScraperApp(QMainWindow):
             self.status_label.setText("Enter at least one ticker")
             return
         
-        self.status_label.setText(f"Scraping {len(tickers)} tickers for all statements (IS, BS, CFS)...")
+        self.status_label.setText(f"Scraping {len(tickers)} tickers for all statements (IS, BS, CFS, Ratios)...")
         self.scrape_btn.setEnabled(False)
         
         self.worker = MultiStatementScraper(tickers, hist_years)
@@ -284,6 +312,11 @@ class StockAnalysisScraperApp(QMainWindow):
         if self.all_results:
             self._display_statement(self.all_results[statement])
     
+    def _on_hist_years_changed(self):
+        """Refresh display only; do not re-scrape."""
+        if self.all_results and self.current_statement in self.all_results:
+            self._display_statement(self.all_results[self.current_statement])
+
     def _display_results(self, all_results, statements):
         """Store results and display current statement"""
         self.all_results = all_results
@@ -302,17 +335,35 @@ class StockAnalysisScraperApp(QMainWindow):
             self.status_label.setText(f"No data for {self.current_statement}")
             return
         
-        # Get column names from first result
-        columns = list(results[0].keys())
+        all_cols = []
+        for r in results:
+            for k in r.keys():
+                if k not in all_cols:
+                    all_cols.append(k)
         
+        # Build column list respecting historical_years setting
+        hist_years = self.hist_years_input.value()
+        fy_cols = ['LFY', 'LFY-1', 'LFY-2', 'LFY-3', 'LFY-4']
+        allowed_fy = fy_cols[:hist_years]
+        
+        preferred_order = ['Ticker', 'Line Item', 'TTM'] + allowed_fy + ['Key']
+        columns = [c for c in preferred_order if c in all_cols]
+        columns += [c for c in all_cols if c not in preferred_order and c not in fy_cols]
+
         self.results_table.setColumnCount(len(columns))
         self.results_table.setHorizontalHeaderLabels(columns)
         self.results_table.setRowCount(len(results))
         
         for row_idx, result in enumerate(results):
             for col_idx, col in enumerate(columns):
-                value = result[col]
-                self.results_table.setItem(row_idx, col_idx, QTableWidgetItem(str(value) if value else ""))
+                value = result.get(col, "")
+                # Catch None, float NaN, and string "nan"
+                if value is None or (isinstance(value, float) and pd.isna(value)) or (isinstance(value, str) and value.strip().lower() == 'nan'):
+                    display_val = ""
+                else:
+                    display_val = str(value) if value != "" else ""
+                
+                self.results_table.setItem(row_idx, col_idx, QTableWidgetItem(display_val))
         
         self.results_table.resizeColumnsToContents()
     
@@ -334,6 +385,9 @@ class StockAnalysisScraperApp(QMainWindow):
 # =========================================================
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    window = StockAnalysisScraperApp()
-    window.show()
-    sys.exit(app.exec())
+    try:
+        window = StockAnalysisScraperApp()
+        window.show()
+        sys.exit(app.exec())
+    except Exception as e:
+        print(f"Application crashed: {e}")
