@@ -21,47 +21,50 @@ The Python application is organized as a modular package (`Canneberge/`) with cl
 ---
 
 ## Repository Structure
-3_code-migration/
-├── Canneberge/ ← Main application package
-│ ├── init.py
-│ ├── main.py ← Entry point (python -m Canneberge.main)
-│ ├── app_state.py ← ProjectInputs dataclass
-│ │
-│ ├── Ui/
-│ │ ├── init.py
-│ │ ├── main_window.py ← Tabbed main window
-│ │ ├── home_page.py ← General/Subject/Market inputs
-│ │ └── source_data_page.py ← Data refresh + results table
-│ │
-│ ├── Sources/
-│ │ ├── init.py
-│ │ ├── stockanalysis.py ← IS, BS, CFS, Ratios scraper
-│ │ ├── marketscreener.py ← Forward estimates (stub)
-│ │ ├── fred.py ← Interest rates (stub)
-│ │ └── beta_vol.py ← Beta/volatility calc (stub)
-│ │
-│ ├── Services/
-│ │ ├── init.py
-│ │ └── source_data_service.py ← Coordinates all source clients
-│ │
-│ ├── Workers/
-│ │ ├── init.py
-│ │ └── source_data_worker.py ← QThread for async pulls
-│ │
-│ └── Transforms/
-│ ├── init.py
-│ └── period_mapper.py ← TTM/LFY column mapping logic
-│
-├── Prototypes/ ← Archived test scripts
-│ ├── test_app_StockAnalysisScraper_v2.py
-│ ├── test_app_MarketScreenerScraper.py
-│ ├── test_app_FREDfetcher.py
-│ └── test_app_Beta_Vol_Module.py
-│
-├── Tests/ ← Future unit/integration tests
-├── Run_Canneberge.bat ← Double-click launcher
-── code-migration.md ← This file
+## Repository Structure
 
+```text
+3_code-migration/
+├── Canneberge/                      ← Main application package
+│   ├── __init__.py
+│   ├── main.py                      ← Entry point (python -m Canneberge.main)
+│   ├── app_state.py                 ← ProjectInputs dataclass
+│   │
+│   ├── Ui/
+│   │   ├── __init__.py
+│   │   ├── main_window.py           ← Tabbed main window
+│   │   ├── home_page.py             ← General/Subject/Market inputs
+│   │   └── source_data_page.py      ← Data refresh + results table
+│   │
+│   ├── Sources/
+│   │   ├── __init__.py
+│   │   ├── stockanalysis.py         ← IS, BS, CFS, Ratios scraper
+│   │   ├── marketscreener.py        ← Forward estimates (stub)
+│   │   ├── fred.py                  ← Interest rates (stub)
+│   │   └── beta_vol.py              ← Beta/volatility calc (stub)
+│   │
+│   ├── Services/
+│   │   ├── __init__.py
+│   │   └── source_data_service.py   ← Coordinates all source clients
+│   │
+│   ├── Workers/
+│   │   ├── __init__.py
+│   │   └── source_data_worker.py    ← QThread for async pulls
+│   │
+│   └── Transforms/
+│       ├── __init__.py
+│       └── period_mapper.py         ← TTM/LFY column mapping logic
+│
+├── Prototypes/                      ← Archived test scripts
+│   ├── test_app_StockAnalysisScraper_v2.py
+│   ├── test_app_MarketScreenerScraper.py
+│   ├── test_app_FREDfetcher.py
+│   └── test_app_Beta_Vol_Module.py
+│
+├── Tests/                           ← Future unit/integration tests
+├── Run_Canneberge.bat               ← Double-click launcher
+└── code-migration.md                ← This file
+```
 
 
 ---
