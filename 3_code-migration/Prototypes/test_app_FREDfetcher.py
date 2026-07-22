@@ -1,5 +1,6 @@
 import sys
 import requests
+import os
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QTableWidget, QTableWidgetItem
@@ -115,7 +116,7 @@ class FREDFetcherApp(QMainWindow):
         self.setGeometry(100, 100, 1400, 600)
         
         # Hardwired configuration
-        self.api_key = "REDACTED"
+        self.api_key = os.environ.get("FRED_API_KEY", "")
         self.series_ids = ["DFF", "SOFR", "WPRIME", "BAMLC0A0CMEY", "BAMLC0A1CAAAEY", 
                            "BAMLC0A2CAAEY", "BAMLC0A3CAEY", "BAMLC0A4CBBBEY", "DGS20"]
         
