@@ -49,6 +49,41 @@ def year_from_date_text(value: str, fallback: Optional[int] = None) -> Optional[
 
 
 @dataclass
+class Transaction:
+    """One guideline transaction row as structured data."""
+    closing_date: str = ""
+    target: str = ""
+    acquirer: str = ""
+    bev: Optional[float] = None
+    ttm_revenue: Optional[float] = None
+    ttm_ebitda: Optional[float] = None
+    ttm_ebit: Optional[float] = None
+
+    def implied_multiple(self, metric: str) -> Optional[float]:
+        """
+        Computes BEV / metric for a given metric name.
+        Returns None if BEV or the metric value is missing/zero.
+        metric: 'TTM Revenue' | 'TTM EBITDA' | 'TTM EBIT'
+        """
+        if self.bev is None:
+            return None
+
+        if metric == "TTM Revenue":
+            denom = self.ttm_revenue
+        elif metric == "TTM EBITDA":
+            denom = self.ttm_ebitda
+        elif metric == "TTM EBIT":
+            denom = self.ttm_ebit
+        else:
+            return None
+
+        if denom is None or denom == 0:
+            return None
+
+        return self.bev / denom
+
+
+@dataclass
 class ProjectInputs:
     # General
     client: str = "Ted & Co."
@@ -74,6 +109,7 @@ class ProjectInputs:
 
     # Market inputs
     gpc_tickers: List[str] = field(default_factory=list)
+    gt_transactions: List[Transaction] = field(default_factory=list)
 
     @property
     def last_fiscal_year_year(self) -> Optional[int]:

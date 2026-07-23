@@ -1,244 +1,62 @@
-# `3_code-migration/HANDOFF_NEXT_PHASES.md`
+Handoff Spec: GPC / GT / NAV Calculation Modules
 
-```markdown
-# Canneberge — Phase 3 Continuation Handoff
+Written for a fresh session with no prior context. If you're a new Claude instance reading this: the person is Ted, ten years of valuation experience, does not need methodology explained — only implementation help. Full project context is in README.md, excel-system.md, and HANDOFF_NEXT_PHASES.md in the repo. Current state: Phase 3 (3_code-migration/) has all four data source clients wired and verified (StockAnalysis, MarketScreener, FRED, Beta/Vol) — see Canneberge/Services/source_data_service.py. Calculation layer (Canneberge/calculations/) does not exist yet.
 
-> Open this document in a NEW chat session to continue development.
-> This handoff assumes the recipient has access to the GitHub repo at:
-> `C:\Users\gwolter\Desktop\GitHub\Canneberge\3_code-migration`
+GPC — Guideline Public Company
 
----
+What it produces: A valuation multiple range (low/median/high) derived from comparable public companies, applied to the subject company's corresponding metric to produce an implied enterprise value.
 
-## Current State (as of 2026-07-21)
+Confirmed inputs (already wired, available now):
 
-### ✅ Completed
-- Full PyQt6 application shell with tabbed navigation
-- Home page with all Excel Control sheet inputs replicated
-- 15-row GPC ticker grid with yfinance company name auto-lookup
-- 5-row GT transaction grid with placeholder data
-- StockAnalysis scraper fully wired (IS, BS, CFS, Ratios)
-- Header-driven year mapping (TTM/LFY/LFY-1/etc.)
-- Historical years toggle (filters display without re-scraping)
-- Async worker thread architecture (UI never freezes)
-- `.bat` launcher for double-click execution
+refresh_stockanalysis() output → Ratios statement gives EV, Market Cap, and multiples per GPC ticker
+refresh_marketscreener() output → forward NFY/NFY+1/NFY+2 EBITDA/EBIT/Revenue/Net Income per ticker
+ProjectInputs.gpc_tickers — the 15-row GPC list from Home page
 
-### ⚠️ In Progress / Stubbed
-- MarketScreener forward estimates (logic extracted, not wired)
-- FRED interest rates (logic extracted, not wired)
-- Beta/Volatility calculations (logic extracted, not wired)
-- Source Data page only shows StockAnalysis results
+Known but unconfirmed (needs Excel formula check):
 
-### ⏳ Not Started
-- Calculation layer (WACC, DCF, GPC, GT, NAV)
-- Report/dashboard output page
-- Data caching layer
-- Logging infrastructure
-- PyInstaller packaging
+gpcMultiple named range currently = "NFY+2 EBITDA" — is this a fixed choice or a dropdown the user changes per engagement? Dash_Prjctn!$BG$29 is the cell reference per the named range inventory, but I don't know if it's a static value or a live dropdown feeding a lookup.
+How outlier GPCs get excluded or down-weighted, if at all — the docs mention "GPC multiple selection and weighting" on Dash_Prjctn but not the actual selection logic.
+RatioCatalog sheet "feeds toggle tables" — unclear whether this is just display formatting or contains actual calculation logic (e.g., which ratios are shown vs. which drive the valuation).
 
----
+Open question for Ted: Pull the actual formula from the GPC sheet cell that computes the selected multiple (median? mean? some weighted approach?) and paste it into the next session before implementation starts.
 
-## Immediate Next Steps (Priority Order)
+Proposed Python structure:
 
-### 1. Wire Remaining Source Clients into Source Data Page
+Canneberge/Calculations/gpc.py
+  - select_comparable_multiple(gpc_data, metric="EBITDA", period="NFY+2") -> float (low/median/high)
+  - apply_multiple_to_subject(multiple, subject_metric_value) -> implied_ev
+GT — Guideline Transaction
 
-**Files to modify:**
-- `Canneberge/Sources/marketscreener.py` — already has logic, needs integration
-- `Canneberge/Sources/fred.py` — already has logic, needs API key handling
-- `Canneberge/Sources/beta_vol.py` — already has logic, needs yfinance integration
-- `Canneberge/Services/source_data_service.py` — add methods for each source
-- `Canneberge/Ui/source_data_page.py` — add checkboxes/buttons for each source
+What it produces: Same idea as GPC but using historical M&A transaction multiples instead of public company trading multiples.
 
-**Expected behavior:**
-- User clicks "Refresh All Sources" or individual source buttons
-- Progress shown per source (StockAnalysis, MarketScreener, FRED, Beta/Vol)
-- Results stored in `self.all_results` dict keyed by source name
-- Display table switches between sources via dropdown or tabs
+Confirmed inputs (already on Home page, no new wiring needed):
 
----
+ProjectInputs doesn't currently expose the GT grid as structured data — check home_page.py's gt_rows list (closing_date, target, acquirer, bev, ttm_revenue per row). [Certain] this is manually entered, not scraped — there's no automated GT data source anywhere in the codebase, confirmed by grep of all Sources/ files.
+gtMultiple named range = "TTM Revenue" — same open question as GPC's multiple: fixed or user-selectable?
 
-### 2. Add Data Caching Layer
+Gap: ProjectInputs.get_project_inputs() in home_page.py currently does not include the GT rows in its returned dataclass — only GPC tickers make it into ProjectInputs. That's a real, immediate blocker: the calculation layer can't access GT transaction data until app_state.py's ProjectInputs dataclass gets a gt_transactions field and get_project_inputs() gets updated to populate it. This should be the first actual code change for GT, before any multiple-math gets written.
 
-**Why:** Avoid re-scraping on every app launch; enable offline work.
+Proposed Python structure:
 
-**Recommended approach:**
-- Use SQLite (`sqlite3` built-in) or Parquet (`pyarrow`)
-- Cache location: `%LOCALAPPDATA%\Canneberge\cache\`
-- Cache key: `ticker + statement_type + date_hash`
-- Cache invalidation: 24 hours for MarketScreener (rate limit), 1 hour for others
+Canneberge/Calculations/gt.py
+  - compute_transaction_multiple(bev, ttm_revenue) -> float  # per transaction
+  - select_gt_multiple(transactions, metric="TTM Revenue") -> float (low/median/high)
+NAV — Net Asset Value
 
-**Files to create:**
-- `Canneberge/services/cache_service.py`
-- Methods: `get_cached(ticker, statement)`, `set_cached(ticker, statement, data)`, `is_fresh(key, max_age_hours)`
+What it produces: Asset-based valuation — subject company's balance sheet adjusted to fair value, rather than an earnings-multiple approach.
 
----
+Confirmed inputs:
 
-### 3. Build Calculation Layer
+refresh_stockanalysis() "BS" statement output — but only for GPCs/subject if publicly traded. If subject is private (current CompanyStatus = "Private Company" default per ProjectInputs), NAV needs PBC (Provided By Client) balance sheet data instead — and there is currently no PBC data entry path anywhere in the Python app. Excel has PBC_BS as a real sheet; Python has nothing equivalent yet.
+eCostCount (0–5) — controls how many "cost" adjustment rows show on the NAV sheet. modNAVtoggle.bas shows/hides rows 42–46 based on this. No Python equivalent exists.
 
-**This is the most complex phase.** The Excel model uses INDEX/MATCH formulas against `ALL_FINANCIALS`. Python should replicate this logic in pure code.
+This is the least-ready of the three. GPC and GT both have real data flowing into the app already; NAV's core input (subject company balance sheet, especially for a private subject) doesn't exist as an input path in Python at all yet. [Likely] NAV should be built last of the three, not first, despite being alphabetically/logically adjacent — the data dependency is missing, not just the calc logic.
 
-**Recommended structure:**
-Canneberge/calculations/
-├── init.py
-├── wacc.py ← Cost of equity, cost of debt, capital structure
-├── dcf.py ← FCF projections, terminal value, discounting
-├── gpc.py ← Multiple selection, comp analysis, spread matrix
-├── gt.py ← Transaction multiple analysis
-├── nav.py ← Net asset value (if retained)
-└── valuation_summary.py ← Reconciliation of approaches
+Open question for Ted: For a private subject company (the current default config — SpaceX, CompanyStatus = "Private Company"), where does balance sheet data come from in the Python app? This needs a UI decision (a PBC entry form, matching Excel's PBC_BS sheet) before NAV can be built at all.
 
-text
+Recommended order, given the above
+GT first — smallest gap (just wire the already-entered Home page grid into ProjectInputs), then straightforward multiple math once transaction data flows through.
+GPC second — data's fully wired, but needs the actual Excel formula for multiple selection pulled before coding, to avoid guessing at methodology.
+NAV last — blocked on a UI decision (PBC data entry) that doesn't exist yet; don't start this one until that's resolved.
 
-
-**Key inputs (from ProjectInputs + source data):**
-- Risk-free rate (from FRED)
-- Beta (from Beta/Vol module)
-- Equity risk premium (hardcoded or configurable)
-- Cost of debt (from FRED + credit spread)
-- Capital structure (from ALL_Ratio or manual input)
-- Forward estimates (from MarketScreener)
-- Historical financials (from StockAnalysis)
-
-**Key outputs:**
-- WACC percentage
-- DCF value per share / total equity value
-- GPC multiple range (low, median, high)
-- GT multiple range
-- Reconciled valuation conclusion
-
----
-
-### 4. Build Report/Dashboard Page
-
-**Files to create:**
-- `Canneberge/Ui/dashboard_page.py`
-
-**Should replicate Excel `Dash_Prjctn` functionality:**
-- Valuation date display
-- Selected approach toggle (DCF/GPC/GT/NAV)
-- WACC inputs and calculated output
-- Long-term growth rate input
-- Projection year toggle
-- Comparable multiples table (GPC + Subject)
-- Dynamic chart (matplotlib embedded in PyQt or plotly)
-- Valuation summary table (football field style)
-
----
-
-### 5. Add Logging Infrastructure
-
-**Current state:** Progress/errors shown in UI status label only.
-
-**Recommended:**
-- Create `Canneberge/utils/logger.py`
-- Log to file: `%LOCALAPPDATA%\Canneberge\logs\canneberge_YYYYMMDD.log`
-- Log levels: DEBUG, INFO, WARNING, ERROR
-- Log: source requests, response sizes, parse errors, calculation steps
-
----
-
-### 6. PyInstaller Packaging
-
-**Goal:** Single `.exe` for distribution (no Python install required).
-
-**Command:**
-```bash
-pyinstaller --onefile --windowed --name Canneberge --icon=icon.ico Canneberge/main.py
-Considerations:
-
-Bundle hidden imports (requests, bs4, pandas, yfinance, etc.)
-Handle relative paths correctly (use sys._MEIPASS for bundled resources)
-Test on clean machine (no Python installed)
-Architecture Reminders
-Source Clients Should NOT Know About PyQt
-Python
-
-# ✅ Good
-class StockAnalysisClient:
-    def fetch_statement(self, ticker, statement_type):
-        # returns DataFrame or None
-        pass
-
-# ❌ Bad
-class StockAnalysisClient:
-    def fetch_statement(self, ticker, statement_type, progress_label):
-        # Don't pass UI widgets into source logic
-        pass
-Use ProjectInputs for All Configuration
-Python
-
-# ✅ Good
-service = SourceDataService(project_inputs)
-results = service.refresh_stockanalysis()
-
-# ❌ Bad
-tickers = ["RKLB", "AMZN", "FLY"]  # Hardcoded
-Period Mapping Is Central
-All sources should output literal source headers (FY 2025, Current, etc.).
-The Transforms/period_mapper.py module handles conversion to TTM, LFY, LFY-1, etc.
-This ensures consistency across sources and future-proofs against website changes.
-
-Known Gotchas
-MarketScreener Rate Limiting
-Daily pull limit (resets every 24 hours)
-When exceeded, returns ~284KB generic page instead of financial data
-Excel version dumps failed HTML to %TEMP%\Canneberge_FailedFinance\
-Python should replicate this diagnostic behavior
-yfinance Company Name Lookup
-Currently runs synchronously on editingFinished
-Can cause UI freeze if Yahoo is slow
-Should move to worker thread with callback
-FRED API Key
-Stored in Excel KeyFRED named range
-Python should read from config file (config.json) or environment variable
-Never commit API key to GitHub
-Beta/Volatility Calculation
-Excel uses custom VBA logic with specific date sampling
-Python prototype (beta_vol.py) replicates this exactly
-Do NOT replace with Yahoo's reported beta (different methodology)
-Testing Strategy
-Unit Tests (future Tests/ folder)
-test_period_mapper.py — verify TTM/LFY mapping logic
-test_wacc.py — verify cost of capital calculations
-test_dcf.py — verify FCF projection and discounting
-test_key_format.py — verify ticker|line item key generation
-Integration Tests
-Run full ETL for 3 tickers, compare output to Excel ALL_FINANCIALS
-Run full valuation, compare output to Excel Dash_Prjctn
-Manual Testing Checklist
- Home page inputs persist across app restart (future feature)
- Source Data refresh shows progress per ticker
- Historical years toggle filters without re-scraping
- Invalid ticker shows blank company name (not error)
- MarketScreener failure is logged, app doesn't crash
- Calculation results match Excel within rounding tolerance
-File Reference Quick-Link
-Purpose	File Path
-Entry point	Canneberge/main.py
-App state	Canneberge/app_state.py
-Home page	Canneberge/Ui/home_page.py
-Source Data page	Canneberge/Ui/source_data_page.py
-StockAnalysis client	Canneberge/Sources/stockanalysis.py
-MarketScreener client	Canneberge/Sources/marketscreener.py
-FRED client	Canneberge/Sources/fred.py
-Beta/Vol client	Canneberge/Sources/beta_vol.py
-Source service	Canneberge/Services/source_data_service.py
-Worker thread	Canneberge/Workers/source_data_worker.py
-Period mapper	Canneberge/Transforms/period_mapper.py
-Launcher	Run_Canneberge.bat
-How to Start the Next Session
-Open new chat
-Paste this entire handoff document
-Say: "I'm continuing Phase 3 of Project Canneberge. Let's start with [NEXT TASK]."
-Recommended first task: Wire MarketScreener forward estimates into the Source Data page.
-
-Contact / Context
-Project owner: gwolter
-Excel workbook location: G:\My Drive\PampleMousseLabs\Project Canneberge\Project_Canneberge.xlsm
-GitHub repo: C:\Users\gwolter\Desktop\GitHub\Canneberge
-Python version: 3.14 (64-bit)
-Key packages: PyQt6, requests, bs4, pandas, yfinance, openpyxl
-text
-
-
----
-
+Before any of these: pull the real cell formulas from GPC, GT, and NAV sheets in the live .xlsm file — named ranges and doc descriptions aren't enough to code against safely.
