@@ -4,15 +4,18 @@ from typing import Optional, List
 from PyQt6.QtWidgets import (
     QWidget,
     QVBoxLayout,
-    QHBoxLayout,
+    QScrollArea,
     QGridLayout,
     QLabel,
     QLineEdit,
     QComboBox,
     QSpinBox,
-    QGroupBox,
+    QCheckBox,
+    QFrame,
+    QSizePolicy,
 )
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor
 
 from Canneberge.app_state import Transaction
 
@@ -20,9 +23,30 @@ METRICS = ["TTM Revenue", "TTM EBITDA", "TTM EBIT"]
 MAX_COLS = 3
 MAX_ROWS = 5
 
+# Column indices — single schema for entire page
+COL_EXCLUDE = 0
+COL_NUM = 1
+COL_DATE = 2
+COL_TARGET = 3
+COL_ACQUIRER = 4
+COL_M0 = 5
+COL_M1 = 6
+COL_M2 = 7
+METRIC_COLS = [COL_M0, COL_M1, COL_M2]
+
+# Fixed widths
+W_EXCLUDE = 55
+W_NUM = 30
+W_DATE = 90
+W_METRIC = 120
+
+INPUT_STYLE = "background-color: #dce9f7; color: #1a4a8a;"
+CALC_STYLE = "color: black;"
+SECTION_HEADER_STYLE = "font-weight: bold; font-size: 11px;"
+
 
 def _parse_float(text: str) -> Optional[float]:
-    text = str(text).strip().replace(",", "")
+    text = str(text).strip().replace(",", "").replace("x", "")
     if not text:
         return None
     try:
@@ -32,7 +56,6 @@ def _parse_float(text: str) -> Optional[float]:
 
 
 def _parse_pct(text: str) -> Optional[float]:
-    """Parse '19.4%' or '0.194' -> 0.194."""
     text = str(text).strip().replace(",", "")
     if not text:
         return None
@@ -57,14 +80,13 @@ def _fmt_currency(value: Optional[float]) -> str:
     return f"{value:,.0f}"
 
 
-def _fmt_pct(value: Optional[float]) -> str:
+def _fmt_pct_display(value: Optional[float]) -> str:
     if value is None:
         return "NA"
     return f"{value:.1%}"
 
 
 def _quartile(values: list, q: float) -> float:
-    """Simple linear interpolation quartile."""
     sorted_vals = sorted(values)
     n = len(sorted_vals)
     if n == 1:
@@ -79,7 +101,6 @@ def _quartile(values: list, q: float) -> float:
 
 
 def _weighted_sum(values: list, weights: list) -> Optional[float]:
-    """SUMPRODUCT(values, weights). Returns None if any value or weight is None."""
     if not values or not weights:
         return None
     total = 0.0
@@ -90,318 +111,445 @@ def _weighted_sum(values: list, weights: list) -> Optional[float]:
     return total
 
 
+def _make_hrule() -> QFrame:
+    line = QFrame()
+    line.setFrameShape(QFrame.Shape.HLine)
+    line.setFrameShadow(QFrame.Shadow.Sunken)
+    return line
+
+
+def _make_section_label(text: str) -> QLabel:
+    lbl = QLabel(text)
+    lbl.setStyleSheet(SECTION_HEADER_STYLE)
+    return lbl
+
+
+class MultipleInputEdit(QLineEdit):
+    """
+    Input field that formats its value as ##.##x on focus-out.
+    Light blue background, blue font.
+    """
+    def __init__(self, placeholder="", parent=None):
+        super().__init__(parent)
+        self.setPlaceholderText(placeholder)
+        self.setStyleSheet(INPUT_STYLE)
+        self.setFixedWidth(W_METRIC - 10)
+        self.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self.editingFinished.connect(self._format_value)
+
+    def _format_value(self):
+        val = _parse_float(self.text())
+        if val is not None:
+            self.setText(f"{val:.2f}x")
+        # if empty/invalid, leave as-is so placeholder shows
+
+
+class PctInputEdit(QLineEdit):
+    """
+    Input field that formats its value as ##.#% on focus-out.
+    Light blue background, blue font.
+    """
+    def __init__(self, placeholder="", parent=None):
+        super().__init__(parent)
+        self.setPlaceholderText(placeholder)
+        self.setStyleSheet(INPUT_STYLE)
+        self.setFixedWidth(W_METRIC - 10)
+        self.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self.editingFinished.connect(self._format_value)
+
+    def _format_value(self):
+        val = _parse_pct(self.text())
+        if val is not None:
+            self.setText(f"{val*100:.1f}%")
+
+
 class GTPage(QWidget):
     """
     Guideline Transaction analysis page.
-
-    Data flow:
-      Red    — pulled from Home page via get_project_inputs_callback
-      Green  — user inputs entered directly on this page
-      Blue   — calculated from red + green inputs
-      Orange — subject company financials (stub until PBC data wired)
+    Single QGridLayout column schema throughout — cols 5/6/7 always
+    correspond to multiple columns 0/1/2 regardless of section.
     """
 
-    def __init__(self, get_project_inputs_callback):
+    def __init__(self, get_project_inputs_callback,
+                 get_stockanalysis_results_callback,
+                 get_private_financials_callback):
         super().__init__()
         self.get_project_inputs_callback = get_project_inputs_callback
+        self._get_stockanalysis_results_callback = get_stockanalysis_results_callback
+        self._get_private_financials_callback = get_private_financials_callback
         self._build_ui()
         self._recalculate()
 
     def _build_ui(self):
-        main_layout = QVBoxLayout()
-        main_layout.setSpacing(8)
+        # Scroll area so content isn't clipped on small screens
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
 
-        # -------------------------------------------------
-        # HEADER (red — from Home page)
-        # -------------------------------------------------
-        header_layout = QHBoxLayout()
+        container = QWidget()
+        self.grid = QGridLayout()
+        self.grid.setSpacing(4)
+        self.grid.setContentsMargins(12, 12, 12, 12)
 
+        # Fixed column widths
+        self.grid.setColumnMinimumWidth(COL_EXCLUDE, W_EXCLUDE)
+        self.grid.setColumnMinimumWidth(COL_NUM, W_NUM)
+        self.grid.setColumnMinimumWidth(COL_DATE, W_DATE)
+        self.grid.setColumnMinimumWidth(COL_M0, W_METRIC)
+        self.grid.setColumnMinimumWidth(COL_M1, W_METRIC)
+        self.grid.setColumnMinimumWidth(COL_M2, W_METRIC)
+
+        # Target and Acquirer columns stretch
+        self.grid.setColumnStretch(COL_TARGET, 2)
+        self.grid.setColumnStretch(COL_ACQUIRER, 2)
+
+        self._current_row = 0
+        self._build_header()
+        self._build_controls()
+        self._build_transaction_section()
+        self._build_statistics_section()
+        self._build_selected_multiples_section()
+        self._build_subject_section()
+        self._build_weighting_section()
+        self._build_equity_bridge_section()
+
+        # Push everything to the top
+        self.grid.setRowStretch(self._current_row + 50, 1)
+
+        container.setLayout(self.grid)
+        scroll.setWidget(container)
+
+        outer = QVBoxLayout()
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.addWidget(scroll)
+        self.setLayout(outer)
+
+    # ------------------------------------------------------------------
+    # SECTION BUILDERS
+    # ------------------------------------------------------------------
+
+    def _build_header(self):
+        r = self._current_row
         self.lbl_client = QLabel()
+        self.lbl_client.setStyleSheet("font-weight: bold;")
         self.lbl_subject = QLabel()
-        self.lbl_date = QLabel()
+        self.lbl_subject.setStyleSheet("font-weight: bold;")
         self.lbl_method = QLabel("Guideline Transaction Method")
+        self.lbl_method.setStyleSheet("font-weight: bold;")
+        self.lbl_date = QLabel()
+        self.lbl_date.setStyleSheet("font-weight: bold;")
 
-        for lbl in [self.lbl_client, self.lbl_subject,
-                    self.lbl_method, self.lbl_date]:
-            lbl.setStyleSheet("font-weight: bold;")
-            header_layout.addWidget(lbl)
+        self.grid.addWidget(self.lbl_client,  r, COL_EXCLUDE, 1, 2)
+        self.grid.addWidget(self.lbl_subject, r, COL_DATE,    1, 1)
+        self.grid.addWidget(self.lbl_method,  r, COL_TARGET,  1, 2)
+        self.grid.addWidget(self.lbl_date,    r, COL_M1,      1, 2)
+        self._current_row += 1
 
-        header_layout.addStretch()
-        main_layout.addLayout(header_layout)
+    def _build_controls(self):
+        r = self._current_row
 
-        # -------------------------------------------------
-        # CONTROLS ROW (green — user inputs)
-        # -------------------------------------------------
-        controls_layout = QHBoxLayout()
-
-        controls_layout.addWidget(QLabel("How Many Multiples:"))
+        spin_label = QLabel("How Many Multiples:")
         self.num_multiples_spin = QSpinBox()
         self.num_multiples_spin.setMinimum(1)
         self.num_multiples_spin.setMaximum(MAX_COLS)
         self.num_multiples_spin.setValue(MAX_COLS)
+        self.num_multiples_spin.setStyleSheet(INPUT_STYLE)
+        self.num_multiples_spin.setFixedWidth(55)
         self.num_multiples_spin.valueChanged.connect(self._on_inputs_changed)
-        controls_layout.addWidget(self.num_multiples_spin)
 
-        controls_layout.addSpacing(20)
-        controls_layout.addWidget(QLabel("Discount for Lack of Control:"))
+        dloc_label = QLabel("Discount for Lack of Control:")
         self.dloc_input = QLineEdit("19.4%")
         self.dloc_input.setFixedWidth(70)
+        self.dloc_input.setStyleSheet(INPUT_STYLE)
+        self.dloc_input.setAlignment(Qt.AlignmentFlag.AlignRight)
         self.dloc_input.editingFinished.connect(self._on_inputs_changed)
-        controls_layout.addWidget(self.dloc_input)
 
-        controls_layout.addStretch()
-        main_layout.addLayout(controls_layout)
+        self.grid.addWidget(spin_label,             r, COL_EXCLUDE, 1, 2)
+        self.grid.addWidget(self.num_multiples_spin, r, COL_DATE)
+        self.grid.addWidget(dloc_label,              r, COL_TARGET)
+        self.grid.addWidget(self.dloc_input,         r, COL_ACQUIRER)
+        self._current_row += 1
 
-        # -------------------------------------------------
-        # TRANSACTION TABLE (red labels + green dropdowns + blue calcs)
-        # -------------------------------------------------
-        tx_group = QGroupBox("Transaction Multiple(s)")
-        tx_layout = QVBoxLayout()
-        self.tx_grid = QGridLayout()
-        self.tx_grid.setSpacing(4)
+        # Spacer
+        self.grid.addWidget(QLabel(""), self._current_row, 0)
+        self._current_row += 1
 
-        # Fixed column headers
-        for col, label in enumerate(["#", "Closing Date", "Target Company", "Acquirer"]):
-            lbl = QLabel(label)
+    def _build_transaction_section(self):
+        r = self._current_row
+
+        # Section label
+        self.grid.addWidget(
+            _make_section_label("Transaction Multiple(s)"),
+            r, COL_EXCLUDE, 1, 8
+        )
+        self._current_row += 1
+        r = self._current_row
+
+        # Column headers
+        for col, text in [
+            (COL_EXCLUDE,   "Exclude"),
+            (COL_NUM,       "#"),
+            (COL_DATE,      "Closing Date"),
+            (COL_TARGET,    "Target Company"),
+            (COL_ACQUIRER,  "Acquirer"),
+        ]:
+            lbl = QLabel(text)
             lbl.setStyleSheet("font-weight: bold;")
-            self.tx_grid.addWidget(lbl, 0, col)
+            self.grid.addWidget(lbl, r, col)
 
-        # Dynamic metric column headers (green dropdowns)
+        # Metric dropdown headers (green inputs)
         self.metric_combos = []
-        for i in range(MAX_COLS):
+        for i, col in enumerate(METRIC_COLS):
             combo = QComboBox()
             combo.addItems(METRICS)
             combo.setCurrentIndex(i)
+            combo.setStyleSheet(INPUT_STYLE)
+            combo.setFixedWidth(W_METRIC - 5)
             combo.currentIndexChanged.connect(self._on_inputs_changed)
             self.metric_combos.append(combo)
-            self.tx_grid.addWidget(combo, 0, 4 + i)
+            self.grid.addWidget(combo, r, col)
 
-        # Transaction data rows
+        self._current_row += 1
+
+        # Transaction rows
+        self.tx_exclude_checks = []
         self.tx_row_labels = []
         self.tx_mult_labels = []
 
         for row in range(MAX_ROWS):
-            row_labels = {}
+            r = self._current_row
+
+            chk = QCheckBox()
+            chk.setFixedWidth(W_EXCLUDE)
+            chk.stateChanged.connect(self._on_inputs_changed)
+            self.tx_exclude_checks.append(chk)
+            self.grid.addWidget(chk, r, COL_EXCLUDE,
+                                alignment=Qt.AlignmentFlag.AlignCenter)
 
             num_lbl = QLabel(str(row + 1))
-            self.tx_grid.addWidget(num_lbl, row + 1, 0)
+            self.grid.addWidget(num_lbl, r, COL_NUM)
 
-            for col_idx, key in enumerate(["closing_date", "target", "acquirer"]):
+            row_labels = {}
+            for col, key in [
+                (COL_DATE,     "closing_date"),
+                (COL_TARGET,   "target"),
+                (COL_ACQUIRER, "acquirer"),
+            ]:
                 lbl = QLabel("")
-                lbl.setStyleSheet("color: red;")
-                self.tx_grid.addWidget(lbl, row + 1, col_idx + 1)
+                self.grid.addWidget(lbl, r, col)
                 row_labels[key] = lbl
 
             self.tx_row_labels.append(row_labels)
 
             mult_lbls = []
-            for i in range(MAX_COLS):
+            for col in METRIC_COLS:
                 lbl = QLabel("NA")
                 lbl.setAlignment(
                     Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
                 )
-                lbl.setStyleSheet("color: blue;")
-                self.tx_grid.addWidget(lbl, row + 1, 4 + i)
+                self.grid.addWidget(lbl, r, col)
                 mult_lbls.append(lbl)
 
             self.tx_mult_labels.append(mult_lbls)
+            self._current_row += 1
 
-        self.tx_grid.setColumnStretch(0, 0)
-        self.tx_grid.setColumnStretch(1, 0)
-        self.tx_grid.setColumnStretch(2, 3)
-        self.tx_grid.setColumnStretch(3, 2)
-        self.tx_grid.setColumnStretch(4, 1)
-        self.tx_grid.setColumnStretch(5, 1)
-        self.tx_grid.setColumnStretch(6, 1)
+        # Divider
+        self.grid.addWidget(_make_hrule(), self._current_row, COL_EXCLUDE, 1, 8)
+        self._current_row += 1
 
-        tx_layout.addLayout(self.tx_grid)
-        tx_group.setLayout(tx_layout)
-        main_layout.addWidget(tx_group)
-
-        # -------------------------------------------------
-        # STATISTICS BLOCK (blue)
-        # -------------------------------------------------
-        stats_group = QGroupBox("Statistics")
-        stats_grid = QGridLayout()
-        stats_grid.setSpacing(4)
+    def _build_statistics_section(self):
+        self.grid.addWidget(
+            _make_section_label("Statistics"),
+            self._current_row, COL_EXCLUDE, 1, 8
+        )
+        self._current_row += 1
 
         stat_names = ["Maximum", "Third Quartile", "Average",
                       "Median", "First Quartile", "Minimum"]
         self.stat_label_widgets = {}
 
-        for row_idx, stat in enumerate(stat_names):
-            stats_grid.addWidget(QLabel(stat), row_idx, 0)
+        for stat in stat_names:
+            r = self._current_row
+            self.grid.addWidget(QLabel(stat), r, COL_EXCLUDE, 1, 4)
+
             col_lbls = []
-            for col_idx in range(MAX_COLS):
+            for col in METRIC_COLS:
                 lbl = QLabel("NA")
                 lbl.setAlignment(
                     Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
                 )
-                lbl.setStyleSheet("color: blue;")
-                stats_grid.addWidget(lbl, row_idx, col_idx + 1)
+                self.grid.addWidget(lbl, r, col)
                 col_lbls.append(lbl)
+
             self.stat_label_widgets[stat] = col_lbls
+            self._current_row += 1
 
-        stats_group.setLayout(stats_grid)
-        main_layout.addWidget(stats_group)
+        self.grid.addWidget(_make_hrule(), self._current_row, COL_EXCLUDE, 1, 8)
+        self._current_row += 1
 
-        # -------------------------------------------------
-        # SELECTED MULTIPLES (green — user inputs)
-        # -------------------------------------------------
-        selected_group = QGroupBox("Selected Multiples")
-        selected_grid = QGridLayout()
-        selected_grid.setSpacing(4)
-
-        selected_grid.addWidget(QLabel("Selected Multiple — Low"), 0, 0)
-        selected_grid.addWidget(QLabel("Selected Multiple — High"), 1, 0)
+    def _build_selected_multiples_section(self):
+        self.grid.addWidget(
+            _make_section_label("Selected Multiples"),
+            self._current_row, COL_EXCLUDE, 1, 8
+        )
+        self._current_row += 1
 
         self.selected_low_inputs = []
         self.selected_high_inputs = []
 
-        for i in range(MAX_COLS):
-            low_input = QLineEdit()
-            low_input.setFixedWidth(80)
-            low_input.setPlaceholderText("e.g. 4.0")
-            low_input.editingFinished.connect(self._on_inputs_changed)
-            self.selected_low_inputs.append(low_input)
-            selected_grid.addWidget(low_input, 0, i + 1)
+        for label_text, inputs_list in [
+            ("Selected Multiple — Low",  self.selected_low_inputs),
+            ("Selected Multiple — High", self.selected_high_inputs),
+        ]:
+            r = self._current_row
+            self.grid.addWidget(QLabel(label_text), r, COL_EXCLUDE, 1, 4)
 
-            high_input = QLineEdit()
-            high_input.setFixedWidth(80)
-            high_input.setPlaceholderText("e.g. 6.0")
-            high_input.editingFinished.connect(self._on_inputs_changed)
-            self.selected_high_inputs.append(high_input)
-            selected_grid.addWidget(high_input, 1, i + 1)
+            for i, col in enumerate(METRIC_COLS):
+                inp = MultipleInputEdit(placeholder="e.g. 4.0x")
+                inp.editingFinished.connect(self._on_inputs_changed)
+                inputs_list.append(inp)
+                self.grid.addWidget(
+                    inp, r, col,
+                    alignment=Qt.AlignmentFlag.AlignRight
+                )
 
-        selected_group.setLayout(selected_grid)
-        main_layout.addWidget(selected_group)
+            self._current_row += 1
 
-        # -------------------------------------------------
-        # SUBJECT FINANCIAL DATA + INDICATED BEV
-        # -------------------------------------------------
-        subject_group = QGroupBox("Subject Company")
-        subject_grid = QGridLayout()
-        subject_grid.setSpacing(4)
+        self.grid.addWidget(_make_hrule(), self._current_row, COL_EXCLUDE, 1, 8)
+        self._current_row += 1
 
+    def _build_subject_section(self):
+        self.grid.addWidget(
+            _make_section_label("Subject Company"),
+            self._current_row, COL_EXCLUDE, 1, 8
+        )
+        self._current_row += 1
+
+        # Subject financial data row
+        r = self._current_row
         self.lbl_subject_name_inline = QLabel("Subject Financial Data")
-        self.lbl_subject_name_inline.setStyleSheet("color: red;")
-        subject_grid.addWidget(self.lbl_subject_name_inline, 0, 0)
+        self.grid.addWidget(self.lbl_subject_name_inline, r, COL_EXCLUDE, 1, 4)
 
         self.subject_metric_labels = []
-        for i in range(MAX_COLS):
+        for col in METRIC_COLS:
             lbl = QLabel("NA")
             lbl.setAlignment(
                 Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
             )
-            lbl.setStyleSheet("color: orange;")
-            subject_grid.addWidget(lbl, 0, i + 1)
+            self.grid.addWidget(lbl, r, col)
             self.subject_metric_labels.append(lbl)
 
-        subject_grid.addWidget(QLabel("Indicated BEV — Low"), 1, 0)
-        subject_grid.addWidget(QLabel("Indicated BEV — High"), 2, 0)
+        self._current_row += 1
 
+        # Indicated BEV rows
         self.indicated_bev_low_labels = []
         self.indicated_bev_high_labels = []
 
-        for i in range(MAX_COLS):
-            lbl_low = QLabel("NA")
-            lbl_low.setAlignment(
-                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
-            )
-            lbl_low.setStyleSheet("color: blue;")
-            subject_grid.addWidget(lbl_low, 1, i + 1)
-            self.indicated_bev_low_labels.append(lbl_low)
+        for label_text, lbls_list in [
+            ("Indicated BEV — Low",  self.indicated_bev_low_labels),
+            ("Indicated BEV — High", self.indicated_bev_high_labels),
+        ]:
+            r = self._current_row
+            self.grid.addWidget(QLabel(label_text), r, COL_EXCLUDE, 1, 4)
 
-            lbl_high = QLabel("NA")
-            lbl_high.setAlignment(
-                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
-            )
-            lbl_high.setStyleSheet("color: blue;")
-            subject_grid.addWidget(lbl_high, 2, i + 1)
-            self.indicated_bev_high_labels.append(lbl_high)
+            for col in METRIC_COLS:
+                lbl = QLabel("NA")
+                lbl.setAlignment(
+                    Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+                )
+                self.grid.addWidget(lbl, r, col)
+                lbls_list.append(lbl)
 
-        subject_group.setLayout(subject_grid)
-        main_layout.addWidget(subject_group)
+            self._current_row += 1
 
-        # -------------------------------------------------
-        # WEIGHTING + FMV CONCLUSION (green inputs + blue calcs)
-        # -------------------------------------------------
-        weight_group = QGroupBox("Weighting & Conclusion")
-        weight_grid = QGridLayout()
-        weight_grid.setSpacing(4)
+        self.grid.addWidget(_make_hrule(), self._current_row, COL_EXCLUDE, 1, 8)
+        self._current_row += 1
 
-        weight_grid.addWidget(QLabel("Weighting"), 0, 0)
+    def _build_weighting_section(self):
+        self.grid.addWidget(
+            _make_section_label("Weighting"),
+            self._current_row, COL_EXCLUDE, 1, 8
+        )
+        self._current_row += 1
+
+        # Weighting inputs
+        r = self._current_row
+        self.grid.addWidget(QLabel("Weighting"), r, COL_EXCLUDE, 1, 4)
 
         self.weight_inputs = []
         default_weight = f"{100 / MAX_COLS:.1f}%"
-        for i in range(MAX_COLS):
-            w_input = QLineEdit(default_weight)
-            w_input.setFixedWidth(80)
-            w_input.editingFinished.connect(self._on_inputs_changed)
-            self.weight_inputs.append(w_input)
-            weight_grid.addWidget(w_input, 0, i + 1)
+        for col in METRIC_COLS:
+            inp = PctInputEdit(placeholder="e.g. 33.3%")
+            inp.setText(default_weight)
+            inp.editingFinished.connect(self._on_inputs_changed)
+            self.weight_inputs.append(inp)
+            self.grid.addWidget(
+                inp, r, col,
+                alignment=Qt.AlignmentFlag.AlignRight
+            )
 
-        weight_grid.addWidget(QLabel("FMV BEV — Low"), 1, 0)
-        weight_grid.addWidget(QLabel("FMV BEV — High"), 2, 0)
+        self._current_row += 1
 
+        # FMV BEV rows (calculations — black)
         self.fmv_low_label = QLabel("NA")
-        self.fmv_low_label.setStyleSheet("color: blue; font-weight: bold;")
         self.fmv_high_label = QLabel("NA")
-        self.fmv_high_label.setStyleSheet("color: blue; font-weight: bold;")
 
-        weight_grid.addWidget(self.fmv_low_label, 1, 1)
-        weight_grid.addWidget(self.fmv_high_label, 2, 1)
+        for label_text, lbl in [
+            ("FMV BEV — Low",  self.fmv_low_label),
+            ("FMV BEV — High", self.fmv_high_label),
+        ]:
+            r = self._current_row
+            self.grid.addWidget(QLabel(label_text), r, COL_EXCLUDE, 1, 4)
+            lbl.setAlignment(
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+            )
+            self.grid.addWidget(lbl, r, COL_M0)
+            self._current_row += 1
 
-        weight_group.setLayout(weight_grid)
-        main_layout.addWidget(weight_group)
+        self.grid.addWidget(_make_hrule(), self._current_row, COL_EXCLUDE, 1, 8)
+        self._current_row += 1
 
-        # -------------------------------------------------
-        # EQUITY BRIDGE (blue)
-        # -------------------------------------------------
-        bridge_group = QGroupBox("Equity Bridge")
-        bridge_grid = QGridLayout()
-        bridge_grid.setSpacing(4)
+    def _build_equity_bridge_section(self):
+        self.grid.addWidget(
+            _make_section_label("Equity Bridge"),
+            self._current_row, COL_EXCLUDE, 1, 8
+        )
+        self._current_row += 1
 
         bridge_rows = [
-            ("Less: Total Debt",                                    "total_debt"),
-            ("FMV of Equity (marketable, controlling) — Low",       "eq_ctrl_low"),
-            ("FMV of Equity (marketable, controlling) — High",      "eq_ctrl_high"),
-            ("Less: Discount for Lack of Control",                  "dloc_pct"),
-            ("FMV of Equity (marketable, noncontrolling) — Low",    "eq_nctrl_low"),
-            ("FMV of Equity (marketable, noncontrolling) — High",   "eq_nctrl_high"),
+            ("Less: Total Debt",                                  "total_debt"),
+            ("FMV of Equity (marketable, controlling) — Low",     "eq_ctrl_low"),
+            ("FMV of Equity (marketable, controlling) — High",    "eq_ctrl_high"),
+            ("Less: Discount for Lack of Control",                "dloc_pct"),
+            ("FMV of Equity (marketable, noncontrolling) — Low",  "eq_nctrl_low"),
+            ("FMV of Equity (marketable, noncontrolling) — High", "eq_nctrl_high"),
         ]
 
         self.bridge_labels = {}
-        for row_idx, (display, key) in enumerate(bridge_rows):
-            bridge_grid.addWidget(QLabel(display), row_idx, 0)
+        for label_text, key in bridge_rows:
+            r = self._current_row
+            self.grid.addWidget(QLabel(label_text), r, COL_EXCLUDE, 1, 5)
+
             lbl = QLabel("NA")
             lbl.setAlignment(
                 Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
             )
-            lbl.setStyleSheet("color: blue;")
-            bridge_grid.addWidget(lbl, row_idx, 1)
+            self.grid.addWidget(lbl, r, COL_M0)
             self.bridge_labels[key] = lbl
+            self._current_row += 1
 
-        bridge_group.setLayout(bridge_grid)
-        main_layout.addWidget(bridge_group)
-
-        main_layout.addStretch()
-        self.setLayout(main_layout)
-
-    # -------------------------------------------------
+    # ------------------------------------------------------------------
     # CALCULATION ENGINE
-    # -------------------------------------------------
+    # ------------------------------------------------------------------
 
     def _on_inputs_changed(self):
         self._recalculate()
 
     def _recalculate(self):
-        """Pull current inputs, compute all derived values, push to labels."""
         inputs = self.get_project_inputs_callback()
         transactions = inputs.gt_transactions
         n_cols = self.num_multiples_spin.value()
 
-        # Update header labels
+        # Header
         self.lbl_client.setText(inputs.client)
         self.lbl_subject.setText(inputs.subject_company_name)
         self.lbl_date.setText(f"As of {inputs.valuation_date}")
@@ -409,39 +557,55 @@ class GTPage(QWidget):
             f"{inputs.subject_company_name} Financial Data"
         )
 
-        # Show/hide columns based on num_multiples
-        for i in range(MAX_COLS):
+        # Show/hide metric columns
+        for i, col in enumerate(METRIC_COLS):
             visible = i < n_cols
             self.metric_combos[i].setVisible(visible)
+            for stat in self.stat_label_widgets:
+                self.stat_label_widgets[stat][i].setVisible(visible)
             self.selected_low_inputs[i].setVisible(visible)
             self.selected_high_inputs[i].setVisible(visible)
             self.subject_metric_labels[i].setVisible(visible)
             self.indicated_bev_low_labels[i].setVisible(visible)
             self.indicated_bev_high_labels[i].setVisible(visible)
             self.weight_inputs[i].setVisible(visible)
-            for stat in self.stat_label_widgets:
-                self.stat_label_widgets[stat][i].setVisible(visible)
             for row in range(MAX_ROWS):
                 self.tx_mult_labels[row][i].setVisible(visible)
 
-        # Fill transaction rows + collect multiples per column
+        # Transaction rows
         multiples_per_col = [[] for _ in range(n_cols)]
 
         for row in range(MAX_ROWS):
+            excluded = self.tx_exclude_checks[row].isChecked()
+
             if row < len(transactions):
                 tx = transactions[row]
+                grey = "color: grey;" if excluded else "color: black;"
+
                 self.tx_row_labels[row]["closing_date"].setText(tx.closing_date)
                 self.tx_row_labels[row]["target"].setText(tx.target)
                 self.tx_row_labels[row]["acquirer"].setText(tx.acquirer)
 
+                for lbl in self.tx_row_labels[row].values():
+                    lbl.setStyleSheet(grey)
+
                 for col_idx in range(n_cols):
                     metric = self.metric_combos[col_idx].currentText()
-                    multiple = tx.implied_multiple(metric)
-                    self.tx_mult_labels[row][col_idx].setText(
-                        _fmt_multiple(multiple)
-                    )
-                    if multiple is not None:
-                        multiples_per_col[col_idx].append(multiple)
+                    if excluded:
+                        self.tx_mult_labels[row][col_idx].setText("NM")
+                        self.tx_mult_labels[row][col_idx].setStyleSheet(
+                            "color: grey;"
+                        )
+                    else:
+                        multiple = tx.implied_multiple(metric)
+                        self.tx_mult_labels[row][col_idx].setText(
+                            _fmt_multiple(multiple)
+                        )
+                        self.tx_mult_labels[row][col_idx].setStyleSheet(
+                            "color: black;"
+                        )
+                        if multiple is not None:
+                            multiples_per_col[col_idx].append(multiple)
             else:
                 for key in ["closing_date", "target", "acquirer"]:
                     self.tx_row_labels[row][key].setText("")
@@ -450,12 +614,12 @@ class GTPage(QWidget):
 
         # Statistics
         stat_funcs = {
-            "Maximum":       lambda v: max(v),
+            "Maximum":        lambda v: max(v),
             "Third Quartile": lambda v: _quartile(v, 0.75),
-            "Average":       lambda v: sum(v) / len(v),
-            "Median":        lambda v: statistics.median(v),
+            "Average":        lambda v: sum(v) / len(v),
+            "Median":         lambda v: statistics.median(v),
             "First Quartile": lambda v: _quartile(v, 0.25),
-            "Minimum":       lambda v: min(v),
+            "Minimum":        lambda v: min(v),
         }
 
         for stat, func in stat_funcs.items():
@@ -471,8 +635,7 @@ class GTPage(QWidget):
                 else:
                     self.stat_label_widgets[stat][col_idx].setText("NA")
 
-        # Subject financial data per column
-        # Stub — returns None until PBC/subject financials are wired
+        # Subject metrics — pulled from StockAnalysis (public) or PrivateFinancials (private)
         subject_metrics = self._get_subject_metrics(inputs, n_cols)
         for col_idx in range(n_cols):
             val = subject_metrics[col_idx]
@@ -480,7 +643,7 @@ class GTPage(QWidget):
                 _fmt_currency(val) if val is not None else "NA"
             )
 
-        # Indicated BEV Low/High
+        # Indicated BEV
         indicated_low = []
         indicated_high = []
 
@@ -509,7 +672,7 @@ class GTPage(QWidget):
                 self.indicated_bev_high_labels[col_idx].setText("NA")
                 indicated_high.append(None)
 
-        # Weighted FMV BEV
+        # Weighted FMV
         weights = [
             _parse_pct(self.weight_inputs[i].text()) for i in range(n_cols)
         ]
@@ -526,7 +689,7 @@ class GTPage(QWidget):
 
         # Equity bridge
         dloc = _parse_pct(self.dloc_input.text())
-        self.bridge_labels["dloc_pct"].setText(_fmt_pct(dloc))
+        self.bridge_labels["dloc_pct"].setText(_fmt_pct_display(dloc))
         self.bridge_labels["total_debt"].setText("NA")
 
         self.bridge_labels["eq_ctrl_low"].setText(
@@ -545,6 +708,55 @@ class GTPage(QWidget):
     def _get_subject_metrics(self, inputs, n_cols) -> list:
         """
         Returns subject company metric value per active column.
-        Stub — all None until subject financial data (PBC or StockAnalysis) is wired.
+        Reads from StockAnalysis results (public) or PrivateFinancials (private).
+        Metric order matches METRICS list: TTM Revenue, TTM EBITDA, TTM EBIT.
         """
-        return [None] * n_cols
+        # Map metric label -> PrivateFinancials IS key
+        PRIVATE_KEY_MAP = {
+            "TTM Revenue": "revenue",
+            "TTM EBITDA":  "ebitda",
+            "TTM EBIT":    "ebit",
+        }
+
+        # Map metric label -> StockAnalysis line item name (lowercase)
+        PUBLIC_KEY_MAP = {
+            "TTM Revenue": "revenue",
+            "TTM EBITDA":  "ebitda",
+            "TTM EBIT":    "ebit",
+        }
+
+        results = []
+
+        for col_idx in range(n_cols):
+            metric = self.metric_combos[col_idx].currentText()
+            val = None
+
+            if inputs.is_private:
+                pf = self._get_private_financials_callback()
+                key = PRIVATE_KEY_MAP.get(metric)
+                if key and pf:
+                    val = pf.get_is(key, "TTM")
+
+            elif inputs.is_publicly_traded:
+                sa_results = self._get_stockanalysis_results_callback()
+                if sa_results:
+                    is_rows = sa_results.get("IS", [])
+                    ticker = inputs.subject_ticker.lower()
+                    found_tickers = list(set(
+                        str(r.get("Ticker", "")).lower() for r in is_rows[:20]
+                    ))
+                    sa_key = PUBLIC_KEY_MAP.get(metric, "").lower()
+                    for row in is_rows:
+                        if (str(row.get("Ticker", "")).lower() == ticker and
+                                str(row.get("Line Item", "")).lower() == sa_key):
+                            raw = row.get("TTM")
+                            if raw is not None:
+                                try:
+                                    val = float(str(raw).replace(",", ""))
+                                except (ValueError, TypeError):
+                                    val = None
+                            break
+
+            results.append(val)
+
+        return results

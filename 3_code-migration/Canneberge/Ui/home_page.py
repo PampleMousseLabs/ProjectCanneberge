@@ -8,28 +8,31 @@ from PyQt6.QtWidgets import (
     QGroupBox,
     QGridLayout,
     QLabel,
+    QSpinBox,
+    QPushButton,
 )
+from PyQt6.QtCore import Qt
 from typing import Optional
 
 import yfinance as yf
 
 from Canneberge.app_state import ProjectInputs, Transaction, parse_ticker_text
 
+INPUT_STYLE = "background-color: #dce9f7; color: #1a4a8a;"
+
 
 class HomePage(QWidget):
-    """
-    Main project-input page.
-    This is intentionally simple right now.
-    We can make it prettier after the source pipeline is wired.
-    """
-
     def __init__(self):
         super().__init__()
+        self._private_financials_callback = None
         self._build_ui()
+
+    def set_private_financials_callback(self, callback):
+        """Called by MainWindow to wire the private financials dialog opener."""
+        self._private_financials_callback = callback
 
     def _build_ui(self):
         main_layout = QVBoxLayout()
-
         top_layout = QHBoxLayout()
 
         # -------------------------------------------------
@@ -94,6 +97,9 @@ class HomePage(QWidget):
             "Private Company",
             "Publicly Traded"
         ])
+        self.company_status_combo.currentTextChanged.connect(
+            self._on_company_status_changed
+        )
 
         self.subject_ticker_input = QLineEdit("SPCX")
         self.tax_rate_input = QLineEdit("21%")
@@ -104,8 +110,22 @@ class HomePage(QWidget):
         self.nfy_1_input = QLineEdit("12/31/2027")
         self.nfy_2_input = QLineEdit("12/31/2028")
 
+        # Private financials link button (shown when Private Company)
+        self.private_financials_btn = QPushButton("Enter Financial Data →")
+        self.private_financials_btn.setStyleSheet(
+            "border: none; color: #1a4a8a; text-decoration: underline; "
+            "text-align: left; background: transparent;"
+        )
+        self.private_financials_btn.setCursor(
+            Qt.CursorShape.PointingHandCursor
+        )
+        self.private_financials_btn.clicked.connect(
+            self._open_private_financials
+        )
+
         subject_form.addRow("Company Status", self.company_status_combo)
         subject_form.addRow("Subject Ticker", self.subject_ticker_input)
+        subject_form.addRow("", self.private_financials_btn)
         subject_form.addRow("Tax Rate", self.tax_rate_input)
         subject_form.addRow("Last Fiscal Year", self.lfy_input)
         subject_form.addRow("Last Fiscal Quarter", self.fq_input)
@@ -123,13 +143,11 @@ class HomePage(QWidget):
         # =========================================================
         market_box = QGroupBox("MARKET INPUTS")
         market_layout = QVBoxLayout()
-
         top_row = QHBoxLayout()
 
-        # --- GPC Section (left) ---
+        # --- GPC ---
         gpc_group = QGroupBox("GPC")
         gpc_layout = QVBoxLayout()
-
         gpc_grid = QGridLayout()
         gpc_grid.setColumnStretch(0, 0)
         gpc_grid.setColumnStretch(1, 0)
@@ -151,14 +169,15 @@ class HomePage(QWidget):
             row_num = QLabel(str(row + 1))
             ticker_edit = QLineEdit()
             ticker_edit.setFixedWidth(90)
-
             name_edit = QLineEdit()
             name_edit.setReadOnly(True)
             name_edit.setMinimumWidth(200)
 
             if row < len(default_tickers):
                 ticker_edit.setText(default_tickers[row])
-                name_edit.setText(self._resolve_company_name(default_tickers[row]))
+                name_edit.setText(
+                    self._resolve_company_name(default_tickers[row])
+                )
 
             ticker_edit.editingFinished.connect(
                 lambda checked=False, r=row: self._update_company_name(r)
@@ -175,13 +194,11 @@ class HomePage(QWidget):
         gpc_layout.addStretch()
         gpc_group.setLayout(gpc_layout)
 
-        # --- GT Section (right) ---
+        # --- GT ---
         gt_group = QGroupBox("GT")
         gt_layout = QVBoxLayout()
-
         gt_grid = QGridLayout()
 
-        # Header row — 8 columns
         headers = ["#", "Closing Date", "Target Company", "Acquirer",
                    "BEV", "TTM Revenue", "TTM EBITDA", "TTM EBIT"]
         for col, header in enumerate(headers):
@@ -198,8 +215,8 @@ class HomePage(QWidget):
                 "acquirer": "Rocket Lab",
                 "bev": "8000",
                 "ttm_revenue": "871.7",
-                "ttm_ebitda": "",
-                "ttm_ebit": "",
+                "ttm_ebitda": "495",
+                "ttm_ebit": "236",
             },
             {
                 "closing_date": "6/15/2026",
@@ -207,7 +224,7 @@ class HomePage(QWidget):
                 "acquirer": "Gilat Satellite Networks",
                 "bev": "157.5",
                 "ttm_revenue": "195.2",
-                "ttm_ebitda": "",
+                "ttm_ebitda": "16.8",
                 "ttm_ebit": "",
             },
             {
@@ -223,7 +240,6 @@ class HomePage(QWidget):
 
         for row in range(5):
             row_num = QLabel(str(row + 1))
-
             closing_date_edit = QLineEdit()
             target_edit = QLineEdit()
             acquirer_edit = QLineEdit()
@@ -281,14 +297,54 @@ class HomePage(QWidget):
 
         top_row.addWidget(gpc_group, 1)
         top_row.addWidget(gt_group, 1)
-
         market_layout.addLayout(top_row)
         market_box.setLayout(market_layout)
         main_layout.addWidget(market_box)
+
+        # =========================================================
+        # PROJECTION CONTROLS
+        # =========================================================
+        projection_box = QGroupBox("PROJECTION CONTROLS")
+        projection_form = QFormLayout()
+
+        self.historical_years_spin = QSpinBox()
+        self.historical_years_spin.setMinimum(0)
+        self.historical_years_spin.setMaximum(5)
+        self.historical_years_spin.setValue(5)
+        self.historical_years_spin.setFixedWidth(60)
+        self.historical_years_spin.setStyleSheet(INPUT_STYLE)
+
+        self.projection_years_spin = QSpinBox()
+        self.projection_years_spin.setMinimum(1)
+        self.projection_years_spin.setMaximum(20)
+        self.projection_years_spin.setValue(5)
+        self.projection_years_spin.setFixedWidth(60)
+        self.projection_years_spin.setStyleSheet(INPUT_STYLE)
+
+        projection_form.addRow("Historical Years", self.historical_years_spin)
+        projection_form.addRow("Projection Years", self.projection_years_spin)
+
+        projection_box.setLayout(projection_form)
+        main_layout.addWidget(projection_box)
+
+        main_layout.addStretch()
         self.setLayout(main_layout)
 
+        # Set initial visibility state
+        self._on_company_status_changed(
+            self.company_status_combo.currentText()
+        )
+
+    def _on_company_status_changed(self, status: str):
+        is_private = status.strip().lower() == "private company"
+        self.subject_ticker_input.setVisible(not is_private)
+        self.private_financials_btn.setVisible(is_private)
+
+    def _open_private_financials(self):
+        if self._private_financials_callback:
+            self._private_financials_callback()
+
     def _parse_float(self, text: str) -> Optional[float]:
-        """Parse a numeric string to float, return None if empty or invalid."""
         text = text.strip().replace(",", "")
         if not text:
             return None
@@ -308,7 +364,6 @@ class HomePage(QWidget):
             return 0.21
 
     def _resolve_company_name(self, ticker: str) -> str:
-        """Best-effort lookup for the proper company name."""
         ticker = ticker.strip().upper()
         if not ticker:
             return ""
@@ -319,19 +374,15 @@ class HomePage(QWidget):
             return ""
 
     def _update_company_name(self, row: int):
-        """Refresh the company name for one ticker row."""
         ticker = self.gpc_ticker_edits[row].text().strip().upper()
         if not ticker:
             self.gpc_name_edits[row].clear()
             return
-        self.gpc_name_edits[row].setText(self._resolve_company_name(ticker))
+        self.gpc_name_edits[row].setText(
+            self._resolve_company_name(ticker)
+        )
 
     def get_project_inputs(self) -> ProjectInputs:
-        """
-        Creates the current ProjectInputs object from the Home page.
-        Other pages/services should ask Home for this object instead of
-        directly reading UI controls.
-        """
         gt_transactions = []
         for row_widgets in self.gt_rows:
             closing_date = row_widgets["closing_date"].text().strip()
@@ -363,19 +414,20 @@ class HomePage(QWidget):
             standard_of_value=self.standard_value_combo.currentText(),
             taxable_nontaxable=self.taxable_combo.currentText(),
             basis_of_value=self.basis_value_combo.currentText(),
-
             company_status=self.company_status_combo.currentText(),
             subject_ticker=self.subject_ticker_input.text().strip().upper(),
             subject_tax_rate=self._parse_tax_rate(),
-
             last_fiscal_year=self.lfy_input.text().strip(),
             last_fiscal_quarter=self.fq_input.text().strip(),
             next_fiscal_year=self.nfy_input.text().strip(),
             nfy_1=self.nfy_1_input.text().strip(),
             nfy_2=self.nfy_2_input.text().strip(),
-
             gpc_tickers=parse_ticker_text(
-                "\n".join(edit.text().strip() for edit in self.gpc_ticker_edits)
+                "\n".join(
+                    edit.text().strip() for edit in self.gpc_ticker_edits
+                )
             ),
             gt_transactions=gt_transactions,
+            historical_years=self.historical_years_spin.value(),
+            projection_years=self.projection_years_spin.value(),
         )

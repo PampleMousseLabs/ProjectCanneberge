@@ -6,7 +6,6 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QSpinBox,
     QDoubleSpinBox,
     QTableWidget,
     QTableWidgetItem,
@@ -28,27 +27,36 @@ class SourceDataPage(QWidget):
     def __init__(self, get_project_inputs_callback):
         super().__init__()
         self.get_project_inputs_callback = get_project_inputs_callback
-
         self.workers = {}
-        self.all_results = {}  # source_name -> results
+        self.all_results = {}
         self.current_source = "stockanalysis"
-        self.current_statement = "IS"  # only relevant for stockanalysis
-
+        self.current_statement = "IS"
         self._build_ui()
 
     def _build_ui(self):
         layout = QVBoxLayout()
 
+        # Refresh buttons
         refresh_layout = QHBoxLayout()
         self.refresh_buttons = {}
+
+        # Refresh All button
+        refresh_all_btn = QPushButton("Refresh All Sources")
+        refresh_all_btn.clicked.connect(self._on_refresh_all_clicked)
+        refresh_layout.addWidget(refresh_all_btn)
+
         for source in self.SOURCES:
             btn = QPushButton(f"Refresh {self.SOURCE_LABELS[source]}")
-            btn.clicked.connect(lambda checked, s=source: self._on_refresh_clicked(s))
+            btn.clicked.connect(
+                lambda checked, s=source: self._on_refresh_clicked(s)
+            )
             self.refresh_buttons[source] = btn
             refresh_layout.addWidget(btn)
+
         refresh_layout.addStretch()
         layout.addLayout(refresh_layout)
 
+        # View controls
         view_layout = QHBoxLayout()
         view_layout.addWidget(QLabel("View:"))
 
@@ -60,7 +68,9 @@ class SourceDataPage(QWidget):
             btn.setCheckable(True)
             if source == "stockanalysis":
                 btn.setChecked(True)
-            btn.clicked.connect(lambda checked, s=source: self._on_source_view_toggle(s))
+            btn.clicked.connect(
+                lambda checked, s=source: self._on_source_view_toggle(s)
+            )
             self.view_group.addButton(btn)
             self.view_buttons[source] = btn
             view_layout.addWidget(btn)
@@ -74,19 +84,14 @@ class SourceDataPage(QWidget):
             btn.setCheckable(True)
             if stmt == "IS":
                 btn.setChecked(True)
-            btn.clicked.connect(lambda checked, s=stmt: self._on_statement_toggle(s))
+            btn.clicked.connect(
+                lambda checked, s=stmt: self._on_statement_toggle(s)
+            )
             self.statement_group.addButton(btn)
             self.statement_buttons[stmt] = btn
             view_layout.addWidget(btn)
 
-        view_layout.addWidget(QLabel("Historical Years:"))
-        self.hist_years_input = QSpinBox()
-        self.hist_years_input.setMinimum(0)
-        self.hist_years_input.setMaximum(5)
-        self.hist_years_input.setValue(5)
-        self.hist_years_input.valueChanged.connect(self._on_hist_years_changed)
-        view_layout.addWidget(self.hist_years_input)
-
+        # Vol term (beta_vol only)
         self.vol_term_label = QLabel("Vol Term (years):")
         view_layout.addWidget(self.vol_term_label)
         self.vol_term_input = QDoubleSpinBox()
@@ -106,32 +111,42 @@ class SourceDataPage(QWidget):
         layout.addWidget(self.status_label)
 
         self.setLayout(layout)
-        self._sync_statement_row_visibility()
+        self._sync_controls_visibility()
 
-    def _sync_statement_row_visibility(self):
+    def _sync_controls_visibility(self):
         show_sa = self.current_source == "stockanalysis"
         for btn in self.statement_buttons.values():
             btn.setVisible(show_sa)
-        self.hist_years_input.setVisible(show_sa)
 
         show_beta_vol = self.current_source == "beta_vol"
         self.vol_term_label.setVisible(show_beta_vol)
         self.vol_term_input.setVisible(show_beta_vol)
 
+    def _on_refresh_all_clicked(self):
+        for source in self.SOURCES:
+            self._on_refresh_clicked(source)
+
     def _on_refresh_clicked(self, source):
         worker = self.workers.get(source)
         if worker and worker.isRunning():
-            self.status_label.setText(f"{self.SOURCE_LABELS[source]} refresh already running...")
+            self.status_label.setText(
+                f"{self.SOURCE_LABELS[source]} refresh already running..."
+            )
             return
 
         project_inputs = self.get_project_inputs_callback()
 
-        if source in ("stockanalysis", "marketscreener") and not project_inputs.active_public_tickers:
-            self.status_label.setText("No public tickers configured on Home page.")
+        if source in ("stockanalysis", "marketscreener") and \
+                not project_inputs.active_public_tickers:
+            self.status_label.setText(
+                "No public tickers configured on Home page."
+            )
             return
 
         self.refresh_buttons[source].setEnabled(False)
-        self.status_label.setText(f"Refreshing {self.SOURCE_LABELS[source]}...")
+        self.status_label.setText(
+            f"Refreshing {self.SOURCE_LABELS[source]}..."
+        )
 
         kwargs = {}
         if source == "beta_vol":
@@ -139,29 +154,32 @@ class SourceDataPage(QWidget):
 
         worker = SourceDataWorker(project_inputs, source, **kwargs)
         worker.progress.connect(self._on_progress)
-        worker.error.connect(lambda msg, s=source: self._on_error(s, msg))
+        worker.error.connect(
+            lambda msg, s=source: self._on_error(s, msg)
+        )
         worker.results.connect(self._on_results)
-        worker.finished.connect(lambda s=source: self._on_finished(s))
+        worker.finished.connect(
+            lambda s=source: self._on_finished(s)
+        )
         self.workers[source] = worker
         worker.start()
 
     def _on_source_view_toggle(self, source):
         self.current_source = source
-        self._sync_statement_row_visibility()
+        self._sync_controls_visibility()
         self._redraw()
 
     def _on_statement_toggle(self, statement):
         self.current_statement = statement
         self._redraw()
 
-    def _on_hist_years_changed(self):
-        self._redraw()
-
     def _on_progress(self, message):
         self.status_label.setText(message)
 
     def _on_error(self, source, message):
-        self.status_label.setText(f"{self.SOURCE_LABELS[source]} error: {message}")
+        self.status_label.setText(
+            f"{self.SOURCE_LABELS[source]} error: {message}"
+        )
         self.refresh_buttons[source].setEnabled(True)
 
     def _on_results(self, source, results):
@@ -170,7 +188,7 @@ class SourceDataPage(QWidget):
             self._redraw()
         row_count = self._count_rows(source, results)
         self.status_label.setText(
-            f"{self.SOURCE_LABELS[source]} refresh complete. {row_count} rows."
+            f"{self.SOURCE_LABELS[source]} complete. {row_count} rows."
         )
 
     def _on_finished(self, source):
@@ -187,11 +205,15 @@ class SourceDataPage(QWidget):
         if not results:
             self.results_table.setRowCount(0)
             self.results_table.setColumnCount(0)
-            self.status_label.setText(f"No data for {self.SOURCE_LABELS[source]}")
+            self.status_label.setText(
+                f"No data for {self.SOURCE_LABELS[source]}"
+            )
             return
 
         if source == "stockanalysis":
-            self._display_stockanalysis(results.get(self.current_statement, []))
+            self._display_stockanalysis(
+                results.get(self.current_statement, [])
+            )
         else:
             self._display_flat(results)
 
@@ -201,19 +223,26 @@ class SourceDataPage(QWidget):
             self.results_table.setColumnCount(0)
             return
 
+        project_inputs = self.get_project_inputs_callback()
+        hist_years = project_inputs.historical_years
+
         all_cols = []
         for row in results:
             for key in row.keys():
                 if key not in all_cols:
                     all_cols.append(key)
 
-        hist_years = self.hist_years_input.value()
         fy_cols = ["LFY", "LFY-1", "LFY-2", "LFY-3", "LFY-4"]
         allowed_fy_cols = fy_cols[:hist_years]
 
-        preferred_order = ["Ticker", "Line Item", "TTM"] + allowed_fy_cols + ["Key"]
+        preferred_order = (
+            ["Ticker", "Line Item", "TTM"] + allowed_fy_cols + ["Key"]
+        )
         columns = [col for col in preferred_order if col in all_cols]
-        columns += [c for c in all_cols if c not in preferred_order and c not in fy_cols]
+        columns += [
+            c for c in all_cols
+            if c not in preferred_order and c not in fy_cols
+        ]
 
         self._fill_table(results, columns)
 
