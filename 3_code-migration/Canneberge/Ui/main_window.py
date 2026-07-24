@@ -1,11 +1,21 @@
-from PyQt6.QtWidgets import QMainWindow, QTabWidget
+from pathlib import Path
+
+from PyQt6.QtWidgets import (
+    QMainWindow, QTabWidget, QMenuBar, QMenu,
+    QFileDialog, QMessageBox
+)
+from PyQt6.QtGui import QAction
 
 from Canneberge.Ui.home_page import HomePage
 from Canneberge.Ui.source_data_page import SourceDataPage
 from Canneberge.Ui.gt_page import GTPage
 from Canneberge.Ui.subject_financials_page import SubjectFinancialsPage
 from Canneberge.Ui.private_financials_input_page import PrivateFinancialsInputPage
-from Canneberge.app_state import PrivateFinancials
+from Canneberge.app_state import PrivateFinancials, Transaction
+from Canneberge.utils.session import (
+    save_session, load_session, list_sessions, SESSION_DIR
+)
+from typing import Optional
 
 
 class MainWindow(QMainWindow):
@@ -14,35 +24,30 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Canneberge")
         self.setGeometry(100, 100, 1500, 850)
 
-        # Shared private financials state
+        # Shared state
         self._private_financials = PrivateFinancials()
-
-        # Shared StockAnalysis results state
         self._stockanalysis_results = {}
+        self._current_session_path: Optional[Path] = None
 
         self.tabs = QTabWidget()
 
-        # Home page
+        # Pages
         self.home_page = HomePage()
         self.home_page.set_private_financials_callback(
             self._open_private_financials_dialog
         )
 
-        # Source Data page
         self.source_data_page = SourceDataPage(
             get_project_inputs_callback=self.home_page.get_project_inputs
         )
-        # Wire results storage so GT and Subject Financials can read them
-        self.source_data_page.all_results  # already a dict on the page
 
-        # GT page
         self.gt_page = GTPage(
             get_project_inputs_callback=self.home_page.get_project_inputs,
             get_stockanalysis_results_callback=self._get_stockanalysis_results,
             get_private_financials_callback=self._get_private_financials,
+            get_subject_debt=self.get_subject_debt,
         )
 
-        # Subject Financials page
         self.subject_financials_page = SubjectFinancialsPage(
             get_project_inputs_callback=self.home_page.get_project_inputs,
             get_stockanalysis_results_callback=self._get_stockanalysis_results,
@@ -54,10 +59,37 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.gt_page, "GT")
         self.tabs.addTab(self.subject_financials_page, "Subject Financials")
 
-        # Refresh Subject Financials tab when switching to it
         self.tabs.currentChanged.connect(self._on_tab_changed)
-
         self.setCentralWidget(self.tabs)
+
+        # File menu
+        self._build_menu()
+
+    def _build_menu(self):
+        menubar = self.menuBar()
+        file_menu = menubar.addMenu("File")
+
+        save_action = QAction("Save Session", self)
+        save_action.setShortcut("Ctrl+S")
+        save_action.triggered.connect(self._on_save_session)
+        file_menu.addAction(save_action)
+
+        save_as_action = QAction("Save Session As...", self)
+        save_as_action.setShortcut("Ctrl+Shift+S")
+        save_as_action.triggered.connect(self._on_save_session_as)
+        file_menu.addAction(save_as_action)
+
+        load_action = QAction("Load Session...", self)
+        load_action.setShortcut("Ctrl+O")
+        load_action.triggered.connect(self._on_load_session)
+        file_menu.addAction(load_action)
+
+        file_menu.addSeparator()
+
+        quit_action = QAction("Quit", self)
+        quit_action.setShortcut("Ctrl+Q")
+        quit_action.triggered.connect(self.close)
+        file_menu.addAction(quit_action)
 
     def _on_tab_changed(self, index: int):
         if self.tabs.widget(index) is self.subject_financials_page:
@@ -70,10 +102,10 @@ class MainWindow(QMainWindow):
         dialog = PrivateFinancialsInputPage(
             private_financials=self._private_financials,
             hist_years=inputs.historical_years,
+            last_fiscal_quarter=inputs.last_fiscal_quarter,
             parent=self,
         )
         if dialog.exec():
-            # Dialog saved — refresh dependent pages
             self.subject_financials_page.refresh()
             self.gt_page._recalculate()
 
@@ -82,3 +114,258 @@ class MainWindow(QMainWindow):
 
     def _get_private_financials(self) -> PrivateFinancials:
         return self._private_financials
+
+    def get_subject_debt(self) -> float:
+        return self.subject_financials_page.get_subject_debt()
+    
+
+    # ------------------------------------------------------------------
+    # SAVE / LOAD
+    # ------------------------------------------------------------------
+
+    def _collect_gt_page_state(self) -> dict:
+        """Read all green inputs from GT page into a serializable dict."""
+        return {
+            "num_multiples": self.gt_page.num_multiples_spin.value(),
+            "dloc": self.gt_page.dloc_input.text(),
+            "metric_selections": [
+                combo.currentText()
+                for combo in self.gt_page.metric_combos
+            ],
+            "selected_low": [
+                inp.text()
+                for inp in self.gt_page.selected_low_inputs
+            ],
+            "selected_high": [
+                inp.text()
+                for inp in self.gt_page.selected_high_inputs
+            ],
+            "weights": [
+                inp.text()
+                for inp in self.gt_page.weight_inputs
+            ],
+            "excluded_rows": [
+                chk.isChecked()
+                for chk in self.gt_page.tx_exclude_checks
+            ],
+        }
+
+    def _apply_gt_page_state(self, state: dict):
+        """Repopulate GT page green inputs from a loaded state dict."""
+        if not state:
+            return
+
+        n = state.get("num_multiples", 3)
+        self.gt_page.num_multiples_spin.setValue(n)
+
+        dloc = state.get("dloc", "")
+        if dloc:
+            self.gt_page.dloc_input.setText(dloc)
+
+        for i, text in enumerate(state.get("metric_selections", [])):
+            if i < len(self.gt_page.metric_combos):
+                idx = self.gt_page.metric_combos[i].findText(text)
+                if idx >= 0:
+                    self.gt_page.metric_combos[i].setCurrentIndex(idx)
+
+        for i, text in enumerate(state.get("selected_low", [])):
+            if i < len(self.gt_page.selected_low_inputs):
+                self.gt_page.selected_low_inputs[i].setText(text)
+
+        for i, text in enumerate(state.get("selected_high", [])):
+            if i < len(self.gt_page.selected_high_inputs):
+                self.gt_page.selected_high_inputs[i].setText(text)
+
+        for i, text in enumerate(state.get("weights", [])):
+            if i < len(self.gt_page.weight_inputs):
+                self.gt_page.weight_inputs[i].setText(text)
+
+        for i, checked in enumerate(state.get("excluded_rows", [])):
+            if i < len(self.gt_page.tx_exclude_checks):
+                self.gt_page.tx_exclude_checks[i].setChecked(checked)
+
+    def _apply_project_inputs_to_home(self, pi: dict):
+        """Repopulate Home page fields from a loaded project_inputs dict."""
+        hp = self.home_page
+
+        def _set(widget, value):
+            if value is None:
+                return
+            from PyQt6.QtWidgets import QLineEdit, QComboBox, QSpinBox
+            if isinstance(widget, QLineEdit):
+                widget.setText(str(value))
+            elif isinstance(widget, QComboBox):
+                idx = widget.findText(str(value))
+                if idx >= 0:
+                    widget.setCurrentIndex(idx)
+            elif isinstance(widget, QSpinBox):
+                widget.setValue(int(value))
+
+        _set(hp.client_input,          pi.get("client"))
+        _set(hp.subject_name_input,    pi.get("subject_company_name"))
+        _set(hp.main_title_input,      pi.get("main_title"))
+        _set(hp.valuation_date_input,  pi.get("valuation_date"))
+        _set(hp.numeric_scale_combo,   pi.get("numeric_scale"))
+        _set(hp.draft_final_combo,     pi.get("draft_final"))
+        _set(hp.standard_value_combo,  pi.get("standard_of_value"))
+        _set(hp.taxable_combo,         pi.get("taxable_nontaxable"))
+        _set(hp.basis_value_combo,     pi.get("basis_of_value"))
+        _set(hp.company_status_combo,  pi.get("company_status"))
+        _set(hp.subject_ticker_input,  pi.get("subject_ticker"))
+        _set(hp.lfy_input,             pi.get("last_fiscal_year"))
+        _set(hp.fq_input,              pi.get("last_fiscal_quarter"))
+        _set(hp.nfy_input,             pi.get("next_fiscal_year"))
+        _set(hp.nfy_1_input,           pi.get("nfy_1"))
+        _set(hp.nfy_2_input,           pi.get("nfy_2"))
+        _set(hp.historical_years_spin, pi.get("historical_years"))
+        _set(hp.projection_years_spin, pi.get("projection_years"))
+
+        # Tax rate
+        tax = pi.get("subject_tax_rate")
+        if tax is not None:
+            pct = tax * 100 if tax <= 1 else tax
+            hp.tax_rate_input.setText(f"{pct:.0f}%")
+
+        # GPC tickers
+        tickers = pi.get("gpc_tickers", [])
+        for i, edit in enumerate(hp.gpc_ticker_edits):
+            if i < len(tickers):
+                edit.setText(tickers[i])
+                hp.gpc_name_edits[i].setText(
+                    hp._resolve_company_name(tickers[i])
+                )
+            else:
+                edit.clear()
+                hp.gpc_name_edits[i].clear()
+
+        # GT transactions
+        transactions = pi.get("gt_transactions", [])
+        for i, row_widgets in enumerate(hp.gt_rows):
+            if i < len(transactions):
+                t = transactions[i]
+                row_widgets["closing_date"].setText(t.get("closing_date", ""))
+                row_widgets["target"].setText(t.get("target", ""))
+                row_widgets["acquirer"].setText(t.get("acquirer", ""))
+                row_widgets["bev"].setText(
+                    str(t["bev"]) if t.get("bev") is not None else ""
+                )
+                row_widgets["ttm_revenue"].setText(
+                    str(t["ttm_revenue"])
+                    if t.get("ttm_revenue") is not None else ""
+                )
+                row_widgets["ttm_ebitda"].setText(
+                    str(t["ttm_ebitda"])
+                    if t.get("ttm_ebitda") is not None else ""
+                )
+                row_widgets["ttm_ebit"].setText(
+                    str(t["ttm_ebit"])
+                    if t.get("ttm_ebit") is not None else ""
+                )
+            else:
+                for widget in row_widgets.values():
+                    widget.clear()
+
+        # Trigger company status visibility update
+        hp._on_company_status_changed(pi.get("company_status", ""))
+
+    def _on_save_session(self):
+        inputs = self.home_page.get_project_inputs()
+        gt_state = self._collect_gt_page_state()
+
+        try:
+            path = save_session(
+                project_inputs=inputs,
+                private_financials=self._private_financials,
+                gt_page_state=gt_state,
+                filepath=self._current_session_path,
+            )
+            self._current_session_path = path
+            self.setWindowTitle(f"Canneberge — {path.stem}")
+            QMessageBox.information(
+                self, "Session Saved",
+                f"Session saved to:\n{path}"
+            )
+        except Exception as e:
+            QMessageBox.critical(
+                self, "Save Failed", f"Could not save session:\n{e}"
+            )
+
+    def _on_save_session_as(self):
+        path_str, _ = QFileDialog.getSaveFileName(
+            self, "Save Session As", str(SESSION_DIR), "JSON files (*.json)"
+        )
+        if not path_str:
+            return
+
+        path = Path(path_str)
+        if path.suffix.lower() != ".json":
+            path = path.with_suffix(".json")
+
+        inputs = self.home_page.get_project_inputs()
+        gt_state = self._collect_gt_page_state()
+
+        try:
+            saved_path = save_session(
+                project_inputs=inputs,
+                private_financials=self._private_financials,
+                gt_page_state=gt_state,
+                filepath=path,
+            )
+            self._current_session_path = saved_path
+            self.setWindowTitle(f"Canneberge — {saved_path.stem}")
+            QMessageBox.information(
+                self, "Session Saved",
+                f"Session saved to:\n{saved_path}"
+            )
+        except Exception as e:
+            QMessageBox.critical(
+                self, "Save Failed", f"Could not save session:\n{e}"
+            )
+        
+    def _on_load_session(self):
+        sessions = list_sessions()
+
+        if not sessions:
+            # No saved sessions — open file picker as fallback
+            path_str, _ = QFileDialog.getOpenFileName(
+                self, "Load Session",
+                str(SESSION_DIR),
+                "JSON files (*.json)"
+            )
+            if not path_str:
+                return
+            filepath = Path(path_str)
+        else:
+            # Show file picker starting at session dir
+            path_str, _ = QFileDialog.getOpenFileName(
+                self, "Load Session",
+                str(SESSION_DIR),
+                "JSON files (*.json)"
+            )
+            if not path_str:
+                return
+            filepath = Path(path_str)
+
+        try:
+            data = load_session(filepath)
+        except Exception as e:
+            QMessageBox.critical(
+                self, "Load Failed", f"Could not load session:\n{e}"
+            )
+            return
+
+        # Apply to UI
+        self._apply_project_inputs_to_home(data["project_inputs_raw"])
+        self._private_financials = data["private_financials"]
+        self._apply_gt_page_state(data["gt_page_state"])
+
+        # Refresh dependent pages
+        self.subject_financials_page.refresh()
+        self.gt_page._recalculate()
+
+        self._current_session_path = filepath
+        self.setWindowTitle(f"Canneberge — {filepath.stem}")
+        QMessageBox.information(
+            self, "Session Loaded",
+            f"Session loaded:\n{filepath.stem}"
+        )

@@ -12,23 +12,20 @@ from PyQt6.QtWidgets import (
     QButtonGroup,
 )
 from PyQt6.QtCore import Qt
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
 
 from Canneberge.app_state import PrivateFinancials
 
 INPUT_STYLE = "background-color: #dce9f7; color: #1a4a8a;"
 BOLD_STYLE = "font-weight: bold;"
-CALC_STYLE = "color: black;"
-
-# Period columns for private input
-PERIODS = ["LFY-4", "LFY-3", "LFY-2", "LFY-1", "LFY", "TTM",
-           "YTD", "NFY", "NFY+1", "NFY+2"]
 
 # IS line items: (key, display_label, is_calculated, bold)
 IS_LINES = [
     ("revenue",                    "Revenue",                          False, True),
     ("cogs",                       "COGS",                             False, False),
     ("cogs_adjustment",            "Adjustment to Cost of Goods Sold", False, False),
-    ("cost_of_goods_sold",         "Cost of Goods Sold",               False, False),
+    ("cost_of_goods_sold",         "Cost of Goods Sold",               True,  False),
     ("gross_profit",               "Gross Profit",                     True,  True),
     ("sga",                        "Operating Expense (SG&A)",         False, False),
     ("rd",                         "Research & Development",           False, False),
@@ -47,7 +44,7 @@ IS_LINES = [
     ("income_before_nonrecurring", "Income Before Nonrecurring Items", True,  True),
     ("nonrecurring",               "Nonrecurring Income/(Expense)",    False, False),
     ("net_income",                 "Net Income",                       True,  True),
-    ("interest_expense_after_tax", "Interest Expense (After Tax)",     False, False),
+    ("interest_expense_after_tax", "Interest Expense (After Tax)",     True,  False),
     ("debt_free_net_income",       "Debt-free Net Income",             True,  True),
     ("capex",                      "Capital Expenditures",             False, False),
     ("acquisitions",               "Acquisitions",                     False, False),
@@ -55,41 +52,41 @@ IS_LINES = [
 
 # BS line items: (key, display_label, is_calculated, bold)
 BS_LINES = [
-    ("cash",                    "Cash and Cash Equivalents",           False, False),
-    ("st_investments",          "Short-Term Investments",              False, False),
-    ("accounts_receivable",     "Accounts Receivable",                 False, False),
-    ("receivables",             "Receivables",                         False, False),
-    ("other_receivables",       "Other Receivables",                   False, False),
-    ("inventory",               "Inventory",                           False, False),
-    ("other_current_assets",    "Other Current Assets",                False, False),
-    ("total_current_assets",    "Total Current Assets",                True,  True),
-    ("ppe",                     "Net Property Plant & Equipment",      False, False),
-    ("intangible_assets",       "Intangible Assets",                   False, False),
-    ("goodwill",                "Goodwill",                            False, False),
-    ("lt_investments",          "Long-Term Investments",               False, False),
-    ("other_lt_assets",         "Other Long-Term Assets",              False, False),
-    ("total_assets",            "Total Assets",                        True,  True),
-    ("st_debt",                 "Short-Term Debt",                     False, False),
-    ("current_ltd",             "Current Portion of Long Term Debt",   False, False),
-    ("current_leases",          "Current Portion of Long Term Leases", False, False),
-    ("accounts_payable",        "Accounts Payable",                    False, False),
-    ("accrued_expenses",        "Accrued Expenses",                    False, False),
-    ("unearned_revenue",        "Unearned Revenue",                    False, False),
-    ("other_current_liab",      "Other Current Liabilities",           False, False),
-    ("total_current_liab",      "Total Current Liabilities",           True,  True),
-    ("lt_debt",                 "Long-Term Debt",                      False, False),
-    ("lt_leases",               "Long-Term Leases",                    False, False),
-    ("lt_operating_leases",     "Long-Term Portion of Operating Leases", False, False),
-    ("other_lt_liab",           "Other Long-Term Liabilities",         False, False),
-    ("total_liabilities",       "Total Liabilities",                   True,  True),
-    ("preferred_stock",         "Preferred Stock",                     False, False),
-    ("common_stock",            "Common Stock",                        False, False),
-    ("apic",                    "Additional Paid in Capital",          False, False),
-    ("treasury_stock",          "Treasury Stock",                      False, False),
-    ("aoci",                    "Accumulated Other Comprehensive",      False, False),
-    ("minority_interest",       "Minority Interest",                   False, False),
-    ("common_equity",           "Common Equity",                       False, False),
-    ("total_equity",            "Total Shareholders' Equity",          True,  True),
+    ("cash",                    "Cash and Cash Equivalents",               False, False),
+    ("st_investments",          "Short-Term Investments",                  False, False),
+    ("accounts_receivable",     "Accounts Receivable",                     False, False),
+    ("receivables",             "Receivables",                             False, False),
+    ("other_receivables",       "Other Receivables",                       False, False),
+    ("inventory",               "Inventory",                               False, False),
+    ("other_current_assets",    "Other Current Assets",                    False, False),
+    ("total_current_assets",    "Total Current Assets",                    True,  True),
+    ("ppe",                     "Net Property Plant & Equipment",          False, False),
+    ("intangible_assets",       "Intangible Assets",                       False, False),
+    ("goodwill",                "Goodwill",                                False, False),
+    ("lt_investments",          "Long-Term Investments",                   False, False),
+    ("other_lt_assets",         "Other Long-Term Assets",                  False, False),
+    ("total_assets",            "Total Assets",                            True,  True),
+    ("st_debt",                 "Short-Term Debt",                         False, False),
+    ("current_ltd",             "Current Portion of Long Term Debt",       False, False),
+    ("current_leases",          "Current Portion of Long Term Leases",     False, False),
+    ("accounts_payable",        "Accounts Payable",                        False, False),
+    ("accrued_expenses",        "Accrued Expenses",                        False, False),
+    ("unearned_revenue",        "Unearned Revenue",                        False, False),
+    ("other_current_liab",      "Other Current Liabilities",               False, False),
+    ("total_current_liab",      "Total Current Liabilities",               True,  True),
+    ("lt_debt",                 "Long-Term Debt",                          False, False),
+    ("lt_leases",               "Long-Term Leases",                        False, False),
+    ("lt_operating_leases",     "Long-Term Portion of Operating Leases",   False, False),
+    ("other_lt_liab",           "Other Long-Term Liabilities",             False, False),
+    ("total_liabilities",       "Total Liabilities",                       True,  True),
+    ("preferred_stock",         "Preferred Stock",                         False, False),
+    ("common_stock",            "Common Stock",                            False, False),
+    ("apic",                    "Additional Paid in Capital",              False, False),
+    ("treasury_stock",          "Treasury Stock",                          False, False),
+    ("aoci",                    "Accumulated Other Comprehensive",         False, False),
+    ("minority_interest",       "Minority Interest",                       False, False),
+    ("common_equity",           "Common Equity",                           False, False),
+    ("total_equity",            "Total Shareholders' Equity",              True,  True),
     ("total_liab_equity",       "Total Liabilities & Shareholders' Equity", True, True),
 ]
 
@@ -110,19 +107,65 @@ def _fmt(value: Optional[float]) -> str:
     return f"{value:,.0f}"
 
 
+def _parse_lfq(lfq_str: str) -> Optional[datetime]:
+    """Parse last fiscal quarter date string."""
+    if not lfq_str:
+        return None
+    for fmt in ("%m/%d/%Y", "%Y-%m-%d", "%m-%d-%Y"):
+        try:
+            return datetime.strptime(lfq_str.strip(), fmt)
+        except ValueError:
+            pass
+    return None
+
+
+def _ytd_labels(lfq_str: str) -> tuple:
+    """
+    Returns (ytd_prior_label, ytd_current_label) based on LFQ.
+    e.g. LFQ = 3/31/2026 ->
+        ytd_prior   = "YTD 3/31/2025"
+        ytd_current = "YTD 3/31/2026"
+    """
+    lfq = _parse_lfq(lfq_str)
+    if lfq is None:
+        return ("YTD Prior", "YTD Current")
+
+    prior = lfq - relativedelta(years=1)
+    return (
+        f"YTD {prior.strftime('%-m/%-d/%Y').replace('%-m', str(prior.month)).replace('%-d', str(prior.day))}",
+        f"YTD {lfq.strftime('%-m/%-d/%Y').replace('%-m', str(lfq.month)).replace('%-d', str(lfq.day))}",
+    )
+
+
+def _format_ytd_label(lfq: datetime, years_offset: int = 0) -> str:
+    """Format a YTD column label from a datetime."""
+    d = lfq - relativedelta(years=years_offset)
+    return f"YTD {d.month}/{d.day}/{d.year}"
+
+
 class PrivateFinancialsInputPage(QDialog):
     """
     Modal dialog for entering private company IS and BS data.
     Only accessible when CompanyStatus = Private Company.
-    Save button commits data to PrivateFinancials dataclass.
-    Cancel discards changes.
+
+    Column order:
+        LFY-N ... LFY-1, LFY, TTM (calculated), NFY, NFY+1, NFY+2,
+        YTD[prior], YTD[current]
+
+    TTM = LFY - YTD_prior + YTD_current
     """
 
     def __init__(self, private_financials: PrivateFinancials,
-                 hist_years: int = 5, parent=None):
+                 hist_years: int = 5,
+                 last_fiscal_quarter: str = "",
+                 parent=None):
         super().__init__(parent)
         self.setWindowTitle("Private Company Financial Data")
-        self.setMinimumSize(1200, 700)
+        self.setMinimumSize(1400, 700)
+
+        self._hist_years = hist_years
+        self._lfq_str = last_fiscal_quarter
+        self._lfq = _parse_lfq(last_fiscal_quarter)
 
         # Work on a copy — only commit on Save
         self._working = PrivateFinancials(
@@ -130,41 +173,66 @@ class PrivateFinancialsInputPage(QDialog):
             bs_data={k: dict(v) for k, v in private_financials.bs_data.items()},
         )
         self._saved_financials = private_financials
-        self._hist_years = hist_years
         self._current_statement = "IS"
 
-        # Input widgets: {statement: {line_key: {period: QLineEdit}}}
+        # Input widgets: {stmt: {line_key: {period: QLineEdit}}}
         self._inputs: Dict[str, Dict[str, Dict[str, QLineEdit]]] = {
-            "IS": {},
-            "BS": {},
+            "IS": {}, "BS": {},
         }
-        # Calculated display labels: {statement: {line_key: {period: QLabel}}}
+        # Calc display labels: {stmt: {line_key: {period: QLabel}}}
         self._calc_labels: Dict[str, Dict[str, Dict[str, QLabel]]] = {
-            "IS": {},
-            "BS": {},
+            "IS": {}, "BS": {},
         }
 
         self._build_ui()
         self._load_data()
 
-    def _visible_periods(self) -> list:
-        """Return period columns based on hist_years setting."""
+    def _get_periods(self) -> list:
+        """
+        Returns ordered period column labels.
+        Historical: LFY-N ... LFY-1, LFY
+        Then: TTM (calculated), NFY, NFY+1, NFY+2
+        Then: YTD prior, YTD current (far right)
+        """
         hist = []
         for i in range(self._hist_years, 0, -1):
-            hist.append("LFY" if i == 1 else f"LFY-{i}")
+            hist.append(f"LFY-{i}")
         hist.append("LFY")
-        return hist + ["TTM", "YTD", "NFY", "NFY+1", "NFY+2"]
+
+        forward = ["TTM", "NFY", "NFY+1", "NFY+2"]
+
+        ytd_prior, ytd_current = self._get_ytd_labels()
+        ytd = [ytd_prior, ytd_current]
+
+        return hist + forward + ytd
+
+    def _get_ytd_labels(self) -> tuple:
+        """Returns (ytd_prior_label, ytd_current_label)."""
+        if self._lfq is None:
+            return ("YTD Prior", "YTD Current")
+        prior = self._lfq - relativedelta(years=1)
+        return (
+            f"YTD {prior.month}/{prior.day}/{prior.year}",
+            f"YTD {self._lfq.month}/{self._lfq.day}/{self._lfq.year}",
+        )
+
+    def _is_ttm(self, period: str) -> bool:
+        return period == "TTM"
+
+    def _is_ytd(self, period: str) -> bool:
+        return period.startswith("YTD")
 
     def _build_ui(self):
         outer_layout = QVBoxLayout()
 
-        # Top bar: IS / BS toggle + Save / Cancel
+        # Top bar
         top_bar = QHBoxLayout()
 
         self.stmt_group = QButtonGroup(self)
         self.stmt_group.setExclusive(True)
         self.btn_is = QPushButton("IS")
         self.btn_bs = QPushButton("BS")
+
         for btn, stmt in [(self.btn_is, "IS"), (self.btn_bs, "BS")]:
             btn.setCheckable(True)
             btn.clicked.connect(
@@ -178,8 +246,8 @@ class PrivateFinancialsInputPage(QDialog):
 
         save_btn = QPushButton("Save")
         save_btn.setStyleSheet(
-            "background-color: #1a4a8a; color: white; font-weight: bold; "
-            "padding: 4px 16px;"
+            "background-color: #1a4a8a; color: white; "
+            "font-weight: bold; padding: 4px 16px;"
         )
         save_btn.clicked.connect(self._on_save)
 
@@ -190,18 +258,31 @@ class PrivateFinancialsInputPage(QDialog):
         top_bar.addWidget(cancel_btn)
         outer_layout.addLayout(top_bar)
 
-        # Scroll area holds the grid
+        # Scroll area with permanent container — never swap widgets,
+        # just show/hide so Qt never deletes them
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
+
+        self._scroll_container = QWidget()
+        container_layout = QVBoxLayout()
+        container_layout.setContentsMargins(0, 0, 0, 0)
+        container_layout.setSpacing(0)
+
+        self._is_widget = self._build_statement_grid("IS", IS_LINES)
+        self._bs_widget = self._build_statement_grid("BS", BS_LINES)
+
+        container_layout.addWidget(self._is_widget)
+        container_layout.addWidget(self._bs_widget)
+        self._scroll_container.setLayout(container_layout)
+
+        self._scroll.setWidget(self._scroll_container)
         outer_layout.addWidget(self._scroll)
 
         self.setLayout(outer_layout)
 
-        # Build both statement grids
-        self._is_widget = self._build_statement_grid("IS", IS_LINES)
-        self._bs_widget = self._build_statement_grid("BS", BS_LINES)
-
-        self._scroll.setWidget(self._is_widget)
+        # IS visible by default, BS hidden
+        self._is_widget.setVisible(True)
+        self._bs_widget.setVisible(False)
 
     def _build_statement_grid(self, stmt: str, lines: list) -> QWidget:
         container = QWidget()
@@ -209,7 +290,8 @@ class PrivateFinancialsInputPage(QDialog):
         grid.setSpacing(2)
         grid.setContentsMargins(8, 8, 8, 8)
 
-        periods = self._visible_periods()
+        periods = self._get_periods()
+        ytd_prior, ytd_current = self._get_ytd_labels()
 
         # Header row
         grid.addWidget(QLabel("Line Item"), 0, 0)
@@ -219,6 +301,15 @@ class PrivateFinancialsInputPage(QDialog):
             lbl.setAlignment(
                 Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
             )
+            # TTM and YTD headers styled differently to distinguish
+            if period == "TTM":
+                lbl.setStyleSheet(
+                    "font-weight: bold; color: #555555;"
+                )
+            elif period.startswith("YTD"):
+                lbl.setStyleSheet(
+                    "font-weight: bold; color: #1a4a8a;"
+                )
             grid.addWidget(lbl, 0, col_idx + 1)
 
         grid.setColumnStretch(0, 2)
@@ -229,32 +320,45 @@ class PrivateFinancialsInputPage(QDialog):
         for row_idx, (key, label, is_calc, bold) in enumerate(lines):
             row = row_idx + 1
 
-            lbl = QLabel(label)
+            name_lbl = QLabel(label)
             if bold:
-                lbl.setStyleSheet(BOLD_STYLE)
-            grid.addWidget(lbl, row, 0)
+                name_lbl.setStyleSheet(BOLD_STYLE)
+            grid.addWidget(name_lbl, row, 0)
 
             self._inputs[stmt][key] = {}
             self._calc_labels[stmt][key] = {}
 
             for col_idx, period in enumerate(periods):
-                if is_calc:
-                    # Calculated row — display label, not input
+                is_ttm = period == "TTM"
+                is_ytd = period.startswith("YTD")
+
+                # TTM is always calculated, never an input
+                if is_calc or is_ttm:
                     val_lbl = QLabel("")
                     val_lbl.setAlignment(
                         Qt.AlignmentFlag.AlignRight |
                         Qt.AlignmentFlag.AlignVCenter
                     )
-                    val_lbl.setStyleSheet(BOLD_STYLE)
+                    style = BOLD_STYLE if bold else ""
+                    if is_ttm:
+                        style += " color: #555555;"
+                    val_lbl.setStyleSheet(style)
                     grid.addWidget(val_lbl, row, col_idx + 1)
                     self._calc_labels[stmt][key][period] = val_lbl
                 else:
                     inp = QLineEdit()
-                    inp.setStyleSheet(INPUT_STYLE)
+                    # YTD columns get same input style but slightly
+                    # different border to visually separate
+                    if is_ytd:
+                        inp.setStyleSheet(
+                            "background-color: #dce9f7; "
+                            "color: #1a4a8a; "
+                            "border: 1px solid #1a4a8a;"
+                        )
+                    else:
+                        inp.setStyleSheet(INPUT_STYLE)
                     inp.setAlignment(Qt.AlignmentFlag.AlignRight)
                     inp.setFixedWidth(88)
-                    # Don't recalculate on every keystroke —
-                    # only on editingFinished
                     inp.editingFinished.connect(
                         lambda s=stmt: self._recalculate(s)
                     )
@@ -266,14 +370,12 @@ class PrivateFinancialsInputPage(QDialog):
 
     def _switch_statement(self, stmt: str):
         self._current_statement = stmt
-        if stmt == "IS":
-            self._scroll.setWidget(self._is_widget)
-        else:
-            self._scroll.setWidget(self._bs_widget)
+        self._is_widget.setVisible(stmt == "IS")
+        self._bs_widget.setVisible(stmt == "BS")
 
     def _load_data(self):
         """Populate input fields from working copy."""
-        periods = self._visible_periods()
+        periods = self._get_periods()
         for stmt, lines in [("IS", IS_LINES), ("BS", BS_LINES)]:
             data = (self._working.is_data if stmt == "IS"
                     else self._working.bs_data)
@@ -289,10 +391,19 @@ class PrivateFinancialsInputPage(QDialog):
         self._recalculate("IS")
         self._recalculate("BS")
 
-    def _get_input(self, stmt: str, key: str, period: str) -> Optional[float]:
+    def _get_input(self, stmt: str, key: str,
+                   period: str) -> Optional[float]:
         widget = self._inputs[stmt].get(key, {}).get(period)
         if widget:
             return _parse_float(widget.text())
+        return None
+
+    def _get_calc(self, stmt: str, key: str,
+                  period: str) -> Optional[float]:
+        """Read a calculated value back as float."""
+        lbl = self._calc_labels[stmt].get(key, {}).get(period)
+        if lbl:
+            return _parse_float(lbl.text())
         return None
 
     def _set_calc(self, stmt: str, key: str, period: str,
@@ -303,25 +414,43 @@ class PrivateFinancialsInputPage(QDialog):
 
     def _recalculate(self, stmt: str):
         """Recompute all calculated rows for given statement."""
-        periods = self._visible_periods()
+        periods = self._get_periods()
+        ytd_prior, ytd_current = self._get_ytd_labels()
 
         if stmt == "IS":
             for period in periods:
-                def g(key): return self._get_input("IS", key, period)
+                def g(key, p=period):
+                    return self._get_input("IS", key, p)
 
-                gross_profit = _sub(g("revenue"), g("cogs"))
+                def gc(key, p=period):
+                    return self._get_calc("IS", key, p)
+
+                # Cost of Goods Sold = COGS + Adjustment
+                cogs_total = _add(g("cogs"), g("cogs_adjustment"))
+                self._set_calc("IS", "cost_of_goods_sold", period, cogs_total)
+
+                # Gross Profit = Revenue - Cost of Goods Sold
+                gross_profit = _sub(g("revenue"), cogs_total)
                 self._set_calc("IS", "gross_profit", period, gross_profit)
 
-                op_exp = _add(g("sga"), g("rd"), g("other_operating"))
+                # Operating Expenses = SG&A + R&D + Other + Adjustment
+                op_exp = _add(
+                    g("sga"), g("rd"),
+                    g("other_operating"), g("operating_expense_adj")
+                )
                 self._set_calc("IS", "operating_expenses", period, op_exp)
 
+                # EBITDA = Gross Profit - Operating Expenses
                 ebitda = _sub(gross_profit, op_exp)
                 self._set_calc("IS", "ebitda", period, ebitda)
 
+                # EBIT = EBITDA - D&A
                 da = _add(g("depreciation"), g("amortization"))
                 ebit = _sub(ebitda, da)
                 self._set_calc("IS", "ebit", period, ebit)
 
+                # Pretax = EBIT - Interest Expense + Interest Income
+                #          + Other Income
                 pretax = _add(
                     ebit,
                     _neg(g("interest_expense")),
@@ -330,21 +459,70 @@ class PrivateFinancialsInputPage(QDialog):
                 )
                 self._set_calc("IS", "pretax_income", period, pretax)
 
+                # Income Before Nonrecurring = Pretax - Taxes
                 inc_before = _sub(pretax, g("taxes"))
                 self._set_calc(
                     "IS", "income_before_nonrecurring", period, inc_before
                 )
 
+                # Net Income = Inc Before + Nonrecurring
                 net_income = _add(inc_before, g("nonrecurring"))
                 self._set_calc("IS", "net_income", period, net_income)
 
-                int_at = g("interest_expense_after_tax")
-                dfni = _add(net_income, int_at)
+                # Interest Expense (After Tax) =
+                #   Interest Expense * (1 - Taxes/Pretax)
+                int_exp = g("interest_expense")
+                taxes = g("taxes")
+                if (int_exp is not None and taxes is not None
+                        and pretax is not None and pretax != 0):
+                    tax_rate = taxes / pretax
+                    int_after_tax = int_exp * (1 - tax_rate)
+                elif int_exp is not None:
+                    int_after_tax = int_exp
+                else:
+                    int_after_tax = None
+                self._set_calc(
+                    "IS", "interest_expense_after_tax",
+                    period, int_after_tax
+                )
+
+                # Debt-free Net Income = Net Income + Int After Tax
+                dfni = _add(net_income, int_after_tax)
                 self._set_calc("IS", "debt_free_net_income", period, dfni)
+
+            # TTM = LFY - YTD_prior + YTD_current
+            # Apply to every IS line item
+            all_keys = [k for k, _, _, _ in IS_LINES]
+            for key, label, is_calc, bold in IS_LINES:
+                lfy_val = (
+                    self._get_calc("IS", key, "LFY")
+                    if is_calc
+                    else self._get_input("IS", key, "LFY")
+                )
+                ytd_p = (
+                    self._get_calc("IS", key, ytd_prior)
+                    if is_calc
+                    else self._get_input("IS", key, ytd_prior)
+                )
+                ytd_c = (
+                    self._get_calc("IS", key, ytd_current)
+                    if is_calc
+                    else self._get_input("IS", key, ytd_current)
+                )
+                if any(v is not None for v in [lfy_val, ytd_p, ytd_c]):
+                    ttm = _add(
+                        lfy_val or 0,
+                        _neg(ytd_p or 0),
+                        ytd_c or 0,
+                    )
+                else:
+                    ttm = None
+                self._set_calc("IS", key, "TTM", ttm)
 
         else:  # BS
             for period in periods:
-                def g(key): return self._get_input("BS", key, period)
+                def g(key, p=period):
+                    return self._get_input("BS", key, p)
 
                 tca = _add(
                     g("cash"), g("st_investments"),
@@ -356,7 +534,8 @@ class PrivateFinancialsInputPage(QDialog):
 
                 ta = _add(
                     tca, g("ppe"), g("intangible_assets"),
-                    g("goodwill"), g("lt_investments"), g("other_lt_assets"),
+                    g("goodwill"), g("lt_investments"),
+                    g("other_lt_assets"),
                 )
                 self._set_calc("BS", "total_assets", period, ta)
 
@@ -376,7 +555,8 @@ class PrivateFinancialsInputPage(QDialog):
                 te = _add(
                     g("preferred_stock"), g("common_stock"),
                     g("apic"), g("treasury_stock"),
-                    g("aoci"), g("minority_interest"), g("common_equity"),
+                    g("aoci"), g("minority_interest"),
+                    g("common_equity"),
                 )
                 self._set_calc("BS", "total_equity", period, te)
 
@@ -385,33 +565,28 @@ class PrivateFinancialsInputPage(QDialog):
                 )
 
     def _collect_data(self) -> PrivateFinancials:
-        """Read all input fields into a fresh PrivateFinancials."""
+        """Read all input and calc fields into a fresh PrivateFinancials."""
         pf = PrivateFinancials()
-        periods = self._visible_periods()
+        periods = self._get_periods()
 
         for stmt, lines in [("IS", IS_LINES), ("BS", BS_LINES)]:
             for key, label, is_calc, bold in lines:
-                if is_calc:
-                    # Read from calc labels
-                    for period in periods:
-                        lbl = self._calc_labels[stmt].get(key, {}).get(period)
-                        if lbl:
-                            val = _parse_float(lbl.text())
-                            if stmt == "IS":
-                                pf.set_is(key, period, val)
-                            else:
-                                pf.set_bs(key, period, val)
-                else:
-                    for period in periods:
+                for period in periods:
+                    if is_calc or period == "TTM":
+                        lbl = self._calc_labels[stmt].get(
+                            key, {}
+                        ).get(period)
+                        val = _parse_float(lbl.text()) if lbl else None
+                    else:
                         val = self._get_input(stmt, key, period)
-                        if stmt == "IS":
-                            pf.set_is(key, period, val)
-                        else:
-                            pf.set_bs(key, period, val)
+
+                    if stmt == "IS":
+                        pf.set_is(key, period, val)
+                    else:
+                        pf.set_bs(key, period, val)
         return pf
 
     def _on_save(self):
-        """Commit working data to the shared PrivateFinancials object."""
         collected = self._collect_data()
         self._saved_financials.is_data = collected.is_data
         self._saved_financials.bs_data = collected.bs_data

@@ -21,13 +21,12 @@ SECTION_STYLE = "font-weight: bold; font-size: 11px;"
 
 
 def _fmt(value) -> str:
-    if value is None:
+    if value is None or str(value).lower() in ("nan", "none", "-"):
         return "-"
     try:
-        f = float(value)
+        f = float(str(value).replace(",",""))
         return f"{f:,.0f}"
-    except (TypeError, ValueError):
-        return str(value)
+    except: return "-"
 
 
 def _make_hrule() -> QFrame:
@@ -35,6 +34,61 @@ def _make_hrule() -> QFrame:
     line.setFrameShape(QFrame.Shape.HLine)
     line.setFrameShadow(QFrame.Shadow.Sunken)
     return line
+
+# Map our IS/BS keys to StockAnalysis line item names
+SA_KEY_MAP = {
+    "revenue": "revenue",
+    "cogs": "cost of revenue",
+    "gross_profit": "gross profit",
+    "sga": "selling, general & admin",
+    "rd": "research & development",
+    "other_operating": "other operating expenses",
+    "operating_expenses": "total operating expenses",
+    "ebitda": "ebitda",
+    "depreciation": "depreciation & amortization expenses",
+    "ebit": "ebit",
+    "interest_expense": "interest expense",
+    "interest_income": "interest income",
+    "other_income": "other non-operating income (expense)",
+    "pretax_income": "pretax income",
+    "taxes": "provision for income taxes",
+    "net_income": "net income",
+    "capex": "capital expenditures",
+    "cash": "cash & equivalents",
+    "st_investments": "short-term investments",
+    "accounts_receivable": "accounts receivable",
+    "inventory": "inventory",
+    "other_current_assets": "other current assets",
+    "total_current_assets": "total current assets",
+    "ppe": "net property, plant & equipment",
+    "goodwill": "goodwill",
+    "intangible_assets": "other intangible assets",
+    "lt_investments": "long-term investments",
+    "other_lt_assets": "other long-term assets",
+    "total_assets": "total assets",
+    "st_debt": "short-term debt",
+    "current_ltd": "current portion of long-term debt",
+    "current_leases": "current portion of long-term leases",
+    "accounts_payable": "accounts payable",
+    "accrued_expenses": "accrued expenses",
+    "unearned_revenue": "unearned revenue",
+    "other_current_liab": "other current liabilities",
+    "total_current_liab": "total current liabilities",
+    "lt_debt": "long-term debt",
+    "lt_leases": "long-term leases",
+    "lt_operating_leases": "long term portion of operating leases",
+    "other_lt_liab": "other long-term liabilities",
+    "total_liabilities": "total liabilities",
+    "preferred_stock": "preferred stock",
+    "common_stock": "common stock",
+    "apic": "additional paid-in capital",
+    "treasury_stock": "treasury stock",
+    "aoci": "accumulated other comprehensive income",
+    "minority_interest": "retained earnings",
+    "common_equity": "minority interest",
+    "total_equity": "total shareholders' equity",
+    "total_liab_equity": "total liabilities & shareholders' equity",
+}
 
 
 class SubjectFinancialsPage(QWidget):
@@ -166,47 +220,7 @@ class SubjectFinancialsPage(QWidget):
                 if k not in ("Ticker", "Key", "Line Item")
             }
 
-        # Map our IS/BS keys to StockAnalysis line item names
-        SA_KEY_MAP = {
-            "revenue":                    "revenue",
-            "cogs":                       "cost of revenue",
-            "gross_profit":               "gross profit",
-            "sga":                        "selling, general & admin",
-            "rd":                         "research & development",
-            "other_operating":            "other operating expenses",
-            "operating_expenses":         "operating expenses",
-            "ebitda":                     "ebitda",
-            "depreciation":               "depreciation & amortization expenses",
-            "ebit":                       "ebit",
-            "interest_expense":           "interest expense",
-            "interest_income":            "interest income",
-            "other_income":               "other non-operating income (expense)",
-            "pretax_income":              "pretax income",
-            "taxes":                      "provision for income taxes",
-            "net_income":                 "net income",
-            "capex":                      "capital expenditures",
-            # BS
-            "cash":                       "cash & equivalents",
-            "st_investments":             "short-term investments",
-            "accounts_receivable":        "accounts receivable",
-            "inventory":                  "inventory",
-            "other_current_assets":       "other current assets",
-            "total_current_assets":       "total current assets",
-            "ppe":                        "property, plant & equipment",
-            "goodwill":                   "goodwill",
-            "intangible_assets":          "intangible assets",
-            "lt_investments":             "long-term investments",
-            "other_lt_assets":            "other long-term assets",
-            "total_assets":               "total assets",
-            "st_debt":                    "short-term debt",
-            "accounts_payable":           "accounts payable",
-            "total_current_liab":         "total current liabilities",
-            "lt_debt":                    "long-term debt",
-            "total_liabilities":          "total liabilities",
-            "total_equity":               "shareholders' equity",
-            "total_liab_equity":          "total liabilities & equity",
-        }
-
+        
         for row_idx, (key, label, is_calc, bold) in enumerate(lines):
             row = row_idx + 1
             name_lbl = QLabel(label)
@@ -284,8 +298,52 @@ class SubjectFinancialsPage(QWidget):
         return container
 
     def _visible_private_periods(self, inputs: ProjectInputs) -> List[str]:
+        from dateutil.relativedelta import relativedelta
+        from datetime import datetime
+
         hist = []
         for i in range(inputs.historical_years, 0, -1):
-            hist.append("LFY" if i == 1 else f"LFY-{i}")
+            hist.append(f"LFY-{i}")
         hist.append("LFY")
-        return hist + ["TTM", "YTD", "NFY", "NFY+1", "NFY+2"]
+
+        forward = ["TTM", "NFY", "NFY+1", "NFY+2"]
+
+        # YTD labels
+        lfq_str = inputs.last_fiscal_quarter
+        lfq = None
+        for fmt in ("%m/%d/%Y", "%Y-%m-%d", "%m-%d-%Y"):
+            try:
+                lfq = datetime.strptime(lfq_str.strip(), fmt)
+                break
+            except ValueError:
+                pass
+
+        if lfq:
+            prior = lfq - relativedelta(years=1)
+            ytd = [
+                f"YTD {prior.month}/{prior.day}/{prior.year}",
+                f"YTD {lfq.month}/{lfq.day}/{lfq.year}",
+            ]
+        else:
+            ytd = ["YTD Prior", "YTD Current"]
+
+        return hist + forward + ytd
+
+    def get_subject_debt(self) -> float:
+        """Helper for GT page."""
+        inputs = self.get_project_inputs()
+        res = 0.0
+        keys = ["st_debt", "current_ltd", "lt_debt"]
+        if inputs.is_private:
+            pf = self.get_private_financials()
+            for k in keys: res += (pf.get_bs(k, "TTM") or 0.0)
+        else:
+            sa = self.get_stockanalysis_results().get("BS", [])
+            tick = inputs.subject_ticker.lower()
+            for k in keys:
+                sa_key = SA_KEY_MAP.get(k)
+                for r in sa:
+                    if str(r.get("Ticker")).lower() == tick and str(r.get("Line Item")).lower() == sa_key:
+                        try: res += float(str(r.get("TTM")).replace(",",""))
+                        except: pass
+        return res
