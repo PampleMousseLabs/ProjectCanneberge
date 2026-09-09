@@ -202,17 +202,39 @@ layout = dbc.Container([
                 ], xs=12, md="auto"),
 
                 dbc.Col([
-                    dbc.Label("DLOC %", className="me-2 mb-0 text-muted"),
-                    dbc.Input(id="gpc-dloc-pct", type="text", value="0%",
-                              style={"width": "80px"}, debounce=True, size="sm",
-                              className="d-inline-block"),
+                    dbc.Label("DLOC % (Dashboard)", className="me-2 mb-0 text-muted"),
+                    dbc.Input(
+                        id="gpc-dloc-pct", type="text", value="0%",
+                        style={
+                            "width": "80px",
+                            "backgroundColor": "transparent",
+                            "border": "0",
+                            "color": "#f8f9fa",
+                            "opacity": 1,
+                            "textAlign": "right",
+                        },
+                        debounce=True, size="sm",
+                        className="d-inline-block",
+                        disabled=True,
+                    ),
                 ], xs=6, md="auto"),
 
                 dbc.Col([
-                    dbc.Label("Control Premium %", className="me-2 mb-0 text-muted"),
-                    dbc.Input(id="gpc-control-premium-pct", type="text", value="0%",
-                              style={"width": "80px"}, debounce=True, size="sm",
-                              className="d-inline-block"),
+                    dbc.Label("Control Premium % (Dashboard)", className="me-2 mb-0 text-muted"),
+                    dbc.Input(
+                        id="gpc-control-premium-pct", type="text", value="0%",
+                        style={
+                            "width": "80px",
+                            "backgroundColor": "transparent",
+                            "border": "0",
+                            "color": "#f8f9fa",
+                            "opacity": 1,
+                            "textAlign": "right",
+                        },
+                        debounce=True, size="sm",
+                        className="d-inline-block",
+                        disabled=True,
+                    ),
                 ], xs=6, md="auto"),
             ], className="align-items-center g-2"),
         ], className="py-1 px-2")
@@ -261,14 +283,37 @@ layout = dbc.Container([
                 dbc.Col([
                     dbc.Label("NWC Surplus (Deficit) — from NWC page",
                               className="text-muted small"),
-                    dbc.Input(id="gpc-nwc-input", type="text", value="0",
-                              size="sm", style={"width": "140px"}, debounce=True,
-                              disabled=True),
+                    dbc.Input(
+                        id="gpc-nwc-input", type="text", value="0",
+                        size="sm",
+                        style={
+                            "width": "140px",
+                            "backgroundColor": "transparent",
+                            "border": "0",
+                            "color": "#f8f9fa",
+                            "opacity": 1,
+                            "textAlign": "right",
+                        },
+                        debounce=True,
+                        disabled=True,
+                    ),
                 ], xs=6, md="auto"),
                 dbc.Col([
-                    dbc.Label("Non-Operating Assets, Net — PLACEHOLDER", className="text-muted small"),
-                    dbc.Input(id="gpc-non-op-input", type="text", value="0",
-                              size="sm", style={"width": "140px"}, debounce=True),
+                    dbc.Label("Non-Operating Assets, Net — from Dashboard", className="text-muted small"),
+                    dbc.Input(
+                        id="gpc-non-op-input", type="text", value="0",
+                        size="sm",
+                        style={
+                            "width": "140px",
+                            "backgroundColor": "transparent",
+                            "border": "0",
+                            "color": "#f8f9fa",
+                            "opacity": 1,
+                            "textAlign": "right",
+                        },
+                        debounce=True,
+                        disabled=True,
+                    ),
                 ], xs=6, md="auto"),
             ], className="mb-3 g-3"),
             html.Div(id="gpc-bridge-container", style={"overflowX": "auto"}),
@@ -793,6 +838,10 @@ def restore_gpc_static_state(_load_ts, pathname, session_data):
     if not gpc_state:
         return (no_update,) * 7
 
+    dash_state = dashboard_state_from_session(session_data or {})
+    nwc_state = (session_data or {}).get("nwc_page_state") or {}
+    nwc_surplus = nwc_state.get("surplus_deficit")
+
     return (
         gpc_state.get("num_multiples", MAX_COLS_CAP),
         (
@@ -800,14 +849,14 @@ def restore_gpc_static_state(_load_ts, pathname, session_data):
             if (session_data or {}).get("basis_of_value") == "Equity Value"
             else "BEV"
         ),
-        gpc_state.get("dloc", "0%"),
-        gpc_state.get("control_premium", "0%"),
+        dash_state.get("dloc", gpc_state.get("dloc", "0%")),
+        dash_state.get("control_premium", gpc_state.get("control_premium", "0%")),
         (
-            f"{(session_data or {}).get('nwc_page_state', {}).get('surplus_deficit'):,.0f}"
-            if ((session_data or {}).get("nwc_page_state") or {}).get("surplus_deficit") is not None
+            f"{nwc_surplus:,.0f}"
+            if nwc_surplus is not None
             else gpc_state.get("nwc", "0")
         ),
-        gpc_state.get("non_op", "0"),
+        dash_state.get("non_op", gpc_state.get("non_op", "0")),
         gpc_state.get("exclude_map") or {},
     )
 

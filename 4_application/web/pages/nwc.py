@@ -594,6 +594,12 @@ layout = dbc.Container([
                                       "fontSize": "12px"}),
                 ], className="d-flex align-items-center"), xs="auto"),
             ], className="align-items-center g-2"),
+            html.Div(
+                "",
+                id="nwc-cash-bridge-warning",
+                className="small fw-bold mt-2",
+                style={"display": "none", "color": "#e06c75"},
+            ),
         ], className="py-1 px-2")
     ], color="dark", outline=True, className="mb-2 border-secondary"),
 
@@ -739,6 +745,35 @@ def _harvest(ids, values, fallback: List[str], count: int) -> List[str]:
             out.append("")
         out[slot] = "" if val is None else str(val)
     return out[:count]
+
+
+@callback(
+    Output("nwc-cash-bridge-warning", "children"),
+    Output("nwc-cash-bridge-warning", "style"),
+    Input("nwc-cash-treatment", "value"),
+    Input({"type": "nwc-ca-select", "slot": ALL}, "value"),
+)
+def render_cash_bridge_warning(cash_treatment, ca_values):
+    cash_keys = {"cash", "st_investments", "trading_asset_securities"}
+    selected = {str(v) for v in (ca_values or []) if v}
+
+    flagged = (
+        cash_treatment == "Including Cash"
+        or bool(selected & cash_keys)
+    )
+
+    hidden = {"display": "none", "color": "#e06c75"}
+    shown = {"display": "block", "color": "#e06c75"}
+
+    if not flagged:
+        return "", hidden
+
+    return (
+        "⚠ Valuation bridges add Cash & Cash Equivalents separately. "
+        "Including cash, short-term investments, or trading securities in NWC "
+        "may double-count cash in the GPC / Dashboard bridge conclusions.",
+        shown,
+    )
 
 
 @callback(
