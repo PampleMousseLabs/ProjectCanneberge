@@ -332,9 +332,13 @@ def _bridge_inputs(session_data, source_results, dash_state) -> BridgeInputs:
 
     cp = parse_weight(dash_state.get("control_premium"))
     dloc = parse_weight(dash_state.get("dloc"))
-    if dloc is None and cp is not None:
+    last_discount = dash_state.get("last_edited_discount", "cp")
+
+    if last_discount == "dloc" and dloc is not None:
+        cp = dloc_to_cp(dloc)
+    elif cp is not None:
         dloc = cp_to_dloc(cp)
-    if cp is None and dloc is not None:
+    elif dloc is not None:
         cp = dloc_to_cp(dloc)
 
     return BridgeInputs(

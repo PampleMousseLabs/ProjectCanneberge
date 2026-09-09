@@ -194,6 +194,7 @@ def _gt_rows():
 
 
 layout = dbc.Container([
+    dcc.Store(id="dash-discount-sync-store", data={}, storage_type="memory"),
     dbc.Row([
         dbc.Col(dbc.Card([
             html.Div("Income Approach", style=_HDR),
@@ -579,6 +580,96 @@ def apply_wacc_stat(debt_stat, beta_stat, session_data, source_results):
     return debt_out, beta_out
 
 
+def _same_pct_value(a, b) -> bool:
+    """Compare percent strings numerically so 19.4% and 19.40% match."""
+    from Canneberge.Calculations.dcf import parse_pct
+
+    av = parse_pct(a)
+    bv = parse_pct(b)
+
+    if av is None or bv is None:
+        return str(a or "").strip() == str(b or "").strip()
+
+    return abs(av - bv) < 1e-9
+
+
+def _calculated_discount_source(trigger_id, current_value, sync_state):
+    """
+    Returns "cp" or "dloc" when the triggering input change was the
+    programmatic counterpart update created by sync_cp_dloc().
+
+    Example:
+        User edits CP -> callback writes DLOC.
+        The DLOC Input fires, but source remains "cp"; do not mark DLOC
+        as the user's last edit.
+    """
+    if not isinstance(sync_state, dict):
+        return None
+
+    source = sync_state.get("source")
+
+    if (
+        trigger_id == "dash-dloc-input"
+        and source == "cp"
+        and _same_pct_value(current_value, sync_state.get("calculated_dloc"))
+    ):
+        return "cp"
+
+    if (
+        trigger_id == "dash-cp"
+        and source == "dloc"
+        and _same_pct_value(current_value, sync_state.get("calculated_cp"))
+    ):
+        return "dloc"
+
+    return None
+
+
+def _same_pct_value(a, b) -> bool:
+    """Compare percent strings numerically so 19.4% and 19.40% match."""
+    from Canneberge.Calculations.dcf import parse_pct
+
+    av = parse_pct(a)
+    bv = parse_pct(b)
+
+    if av is None or bv is None:
+        return str(a or "").strip() == str(b or "").strip()
+
+    return abs(av - bv) < 1e-9
+
+
+def _calculated_discount_source(trigger_id, current_value, sync_state):
+    """
+    Returns "cp" or "dloc" when the triggering input change was the
+    programmatic counterpart update created by sync_cp_dloc().
+
+    Example:
+        User edits CP -> callback writes DLOC.
+        The DLOC Input fires, but source remains "cp"; do not mark DLOC
+        as the user's last edit.
+    """
+    if not isinstance(sync_state, dict):
+        return None
+
+    source = sync_state.get("source")
+
+    if (
+        trigger_id == "dash-dloc-input"
+        and source == "cp"
+        and _same_pct_value(current_value, sync_state.get("calculated_dloc"))
+    ):
+        return "cp"
+
+    if (
+        trigger_id == "dash-cp"
+        and source == "dloc"
+        and _same_pct_value(current_value, sync_state.get("calculated_cp"))
+    ):
+        return "dloc"
+
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Outputs (labels + chart) — inputs are not outputs
 # ---------------------------------------------------------------------------
@@ -609,8 +700,9 @@ def apply_wacc_stat(debt_stat, beta_stat, session_data, source_results):
     Input("dash-cp", "value"),
     Input("dash-dloc-input", "value"),
     Input("dash-non-op", "value"),
+    State("dash-discount-sync-store", "data"),
 )
-def render_dashboard_outputs(pathname, session_data, source_results, display, level, cp, dloc, non_op):
+def render_dashboard_outputs(pathname, session_data, source_results, display, level, cp, dloc, non_op, discount_sync):
     if pathname not in ("/dashboard", "/dashboard/"):
         return (no_update,) * 17
     session_data = dict(session_data or {})
@@ -631,9 +723,18 @@ def render_dashboard_outputs(pathname, session_data, source_results, display, le
     if non_op is not None:
         dstate["non_op"] = non_op
 
-    if ctx.triggered_id == "dash-dloc-input":
+    trig = ctx.triggered_id
+    counterpart_source = _calculated_discount_source(
+        trig,
+        dloc if trig == "dash-dloc-input" else cp,
+        discount_sync,
+    )
+
+    if counterpart_source:
+        dstate["last_edited_discount"] = counterpart_source
+    elif trig == "dash-dloc-input":
         dstate["last_edited_discount"] = "dloc"
-    elif ctx.triggered_id == "dash-cp":
+    elif trig == "dash-cp":
         dstate["last_edited_discount"] = "cp"
 
     session_data["dashboard_page_state"] = dstate
@@ -678,27 +779,55 @@ def render_dashboard_outputs(pathname, session_data, source_results, display, le
 @callback(
     Output("dash-cp", "value", allow_duplicate=True),
     Output("dash-dloc-input", "value", allow_duplicate=True),
+    Output("dash-discount-sync-store", "data"),
     Input("dash-cp", "value"),
     Input("dash-dloc-input", "value"),
+    State("dash-discount-sync-store", "data"),
     prevent_initial_call=True,
 )
-def sync_cp_dloc(cp_text, dloc_text):
+def sync_cp_dloc(cp_text, dloc_text, discount_sync):
     from Canneberge.Calculations.value_bridge import cp_to_dloc, dloc_to_cp
     from Canneberge.Calculations.dcf import parse_pct
 
     trig = ctx.triggered_id
 
+    counterpart_source = _calculated_discount_source(
+        trig,
+        dloc_text if trig == "dash-dloc-input" else cp_text,
+        discount_sync,
+    )
+    if counterpart_source:
+        return no_update, no_update, discount_sync or {}
+
     if trig == "dash-cp":
         cp = parse_pct(cp_text)
         dloc = cp_to_dloc(cp)
-        return no_update, (f"{dloc * 100:.1f}%" if dloc is not None else "")
+        dloc_text_out = f"{dloc * 100:.1f}%" if dloc is not None else ""
+        return (
+            no_update,
+            dloc_text_out,
+            {
+                "source": "cp",
+                "source_value": cp_text,
+                "calculated_dloc": dloc_text_out,
+            },
+        )
 
     if trig == "dash-dloc-input":
         dloc = parse_pct(dloc_text)
         cp = dloc_to_cp(dloc)
-        return (f"{cp * 100:.1f}%" if cp is not None else ""), no_update
+        cp_text_out = f"{cp * 100:.1f}%" if cp is not None else ""
+        return (
+            cp_text_out,
+            no_update,
+            {
+                "source": "dloc",
+                "source_value": dloc_text,
+                "calculated_cp": cp_text_out,
+            },
+        )
 
-    return no_update, no_update
+    return no_update, no_update, discount_sync or {}
 
 
 # ---------------------------------------------------------------------------
@@ -743,6 +872,7 @@ def sync_cp_dloc(cp_text, dloc_text):
     State({"type": "dash-gt-metric", "i": ALL}, "id"),
     State({"type": "dash-recon-wt", "m": ALL}, "id"),
     State({"type": "dash-cost", "k": ALL}, "id"),
+    State("dash-discount-sync-store", "data"),
     State("session-store", "data"),
     prevent_initial_call=True,
 )
@@ -754,6 +884,7 @@ def persist_dashboard(
     gt_metrics, gt_lo, gt_hi, gt_wt,
     recon_wts, cost_vals,
     gpc_metric_ids, gt_metric_ids, recon_ids, cost_ids,
+    discount_sync,
     session_data,
 ):
     if not ctx.triggered_id:
@@ -869,7 +1000,15 @@ def persist_dashboard(
         beta_stat_out = "Custom"
 
     last_discount_out = dash.get("last_edited_discount", "cp")
-    if trig == "dash-dloc-input":
+    counterpart_source = _calculated_discount_source(
+        trig,
+        dloc if trig == "dash-dloc-input" else cp,
+        discount_sync,
+    )
+
+    if counterpart_source:
+        last_discount_out = counterpart_source
+    elif trig == "dash-dloc-input":
         last_discount_out = "dloc"
     elif trig == "dash-cp":
         last_discount_out = "cp"
