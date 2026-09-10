@@ -2325,7 +2325,129 @@ class DCFPage(QWidget):
             final_ebitda=final_ebitda,
             residual_fcf_override=residual_fcf,
         )
+    def _populate_sensitivity_table(self, inputs):
+            if not hasattr(self, "sens_value_labels"):
+                return
+            wacc_now = self._get_discount_rate()
+            ltgr_now = self._get_ltgr()
 
+            rate_label = "Ke" if self._cash_flows_to == "FCFE" else "WACC"
+            if hasattr(self, "_lbl_sensitivity_header"):
+                self._lbl_sensitivity_header.setText(f"Sensitivity: Fair Value by {rate_label} / LTGR")
+
+            if wacc_now is not None:
+                for col, offset in enumerate([0.02, 0.01, 0.0, -0.01, -0.02]):
+                    inp = self.sens_wacc_inputs[col]
+                    if inp.text() == self._sens_wacc_auto_text[col]:
+                        new_text = f"{(wacc_now + offset) * 100:.4f}%"
+                        inp.setText(new_text)
+                        self._sens_wacc_auto_text[col] = new_text
+
+            if ltgr_now is not None:
+                for row, offset in enumerate([0.02, 0.01, 0.0, -0.01, -0.02]):
+                    inp = self.sens_ltgr_inputs[row]
+                    if inp.text() == self._sens_ltgr_auto_text[row]:
+                        new_text = f"{(ltgr_now + offset) * 100:.1f}%"
+                        inp.setText(new_text)
+                        self._sens_ltgr_auto_text[row] = new_text
+
+            def _pct_or_none(text: str) -> Optional[float]:
+                v = _parse_label_as_float(text)
+                return (v / 100.0) if v is not None else None
+
+            wacc_vals = [_pct_or_none(w.text()) for w in self.sens_wacc_inputs]
+            ltgr_vals = [_pct_or_none(l.text()) for l in self.sens_ltgr_inputs]
+
+            high_coord = (1, 3)
+            low_coord  = (3, 1)
+            center_coord = (2, 2)
+
+            # 1. First pass: evaluate pure math grid
+            grid_fvs = {}
+            valid_fvs = []
+            for row in range(5):
+                for col in range(5):
+                    w = wacc_vals[col]
+                    l = ltgr_vals[row]
+                    if w is not None and l is not None and w > 0:
+                        fv = self._compute_fv_for_assumptions(w, l)
+                        grid_fvs[(row, col)] = fv
+                        if fv is not None and fv > 0:
+                            valid_fvs.append(fv)
+                    else:
+                        grid_fvs[(row, col)] = None
+
+            min_fv = min(valid_fvs) if valid_fvs else 0.0
+            max_fv = max(valid_fvs) if valid_fvs else 0.0
+            t = theme_manager.current
+
+            # 2. Second pass: display formatted text + RGBA Heatmap tint
+            for row in range(5):
+                for col in range(5):
+                    lbl = self.sens_value_labels[row][col]
+                    fv = grid_fvs.get((row, col))
+
+                    if fv is None:
+                        lbl.setText("-")
+                        lbl.setStyleSheet("")
+                        continue
+
+                    lbl.setText(_fmt_currency(fv))
+
+                    # Normalize range 0.0 (Lowest = Red) to 1.0 (Highest = Green)
+                    if max_fv > min_fv:
+                        norm = (fv - min_fv) / (max_fv - min_fv)
+                    else:
+                        norm = 0.5
+
+                    if norm < 0.5:
+                        # Interpolate Red -> Muted Gray
+                        ratio = norm / 0.5
+                        r = int(211 * (1 - ratio) + 120 * ratio)
+                        g = int(47 * (1 - ratio) + 120 * ratio)
+                        b = int(47 * (1 - ratio) + 120 * ratio)
+                        alpha = 0.35 * (1 - ratio) + 0.1 * ratio
+                    else:
+                        # Interpolate Muted Gray -> Soft Green
+                        ratio = (norm - 0.5) / 0.5
+                        r = int(120 * (1 - ratio) + 46 * ratio)
+                        g = int(120 * (1 - ratio) + 125 * ratio)
+                        b = int(120 * (1 - ratio) + 50 * ratio)
+                        alpha = 0.1 * (1 - ratio) + 0.35 * ratio
+
+                    bg_color = f"rgba({r}, {g}, {b}, {alpha:.2f})"
+                    is_bold = (row, col) in (high_coord, low_coord, center_coord)
+                    weight_css = "font-weight: bold;" if is_bold else ""
+                    text_color = f"color: {t.bold_text if is_bold else t.default_text};"
+                    border_css = f"border: 1px solid {t.emphasis_border};" if (row, col) == center_coord else ""
+
+                    lbl.setStyleSheet(f"background-color: {bg_color}; {weight_css} {text_color} {border_css} padding: 2px 4px; border-radius: 3px;")
+
+            self.bridge_fv_high_label.setText(
+                self.sens_value_labels[high_coord[0]][high_coord[1]].text()
+            )
+            self.bridge_fv_low_label.setText(
+                self.sens_value_labels[low_coord[0]][low_coord[1]].text()
+            )
+
+    def _populate_fv_bridge(self, inputs):
+            calc = getattr(self, "_shared_calc", None) or {}
+
+            sum_pv_fcf = calc.get("sum_pv_fcf")
+            pv_residual = calc.get("pv_residual")
+            fv_base = calc.get("fv_base")
+
+            self.bridge_sum_pv_label.setText(_fmt_currency(sum_pv_fcf))
+            self.bridge_disc_residual_label.setText(_fmt_currency(pv_residual))
+            self.bridge_fv_base_label.setText(_fmt_currency(fv_base))
+
+            is_fcff = self._cash_flows_to == "FCFF"
+            self.bridge_fv_base_row_label.setText(
+                "Fair Value of Business Enterprise (Base):"
+                if is_fcff
+                else "Fair Value of Equity (Base):"
+            )   
+         
     def _get_ltgr(self) -> Optional[float]:
         text = self.ltg_input.text().strip().replace("%", "")
         if not text:
