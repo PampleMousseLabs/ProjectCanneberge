@@ -4,7 +4,9 @@ web/lib/dashboard_data.py
 Headless Dashboard reconciliation.
 
 Pulls WACC / DCF / GPC / GT / NWC from session + source data (pages
-do not need to have been visited). Bridge math is chart_helper.compute_bridge.
+do not need to have been visited). Bridge math is
+Canneberge.Calculations.value_bridge.run_bridge / value_for.
+weighted_conclusion remains in chart_helper.
 """
 
 from __future__ import annotations
@@ -386,17 +388,6 @@ def _observed_on_basis(bridge: BridgeInputs, basis: str) -> Optional[float]:
         + (bridge.minority_interest or 0.0)
         - (bridge.cash or 0.0)
     )
-
-
-def _single_bridged(name, low, high, apply_dloc, bridge, basis, source_basis):
-    if low is None and high is None:
-        return None, None
-    row = MethodRow(
-        name=name, bev_low=low, bev_high=high,
-        apply_dloc=apply_dloc, source_basis=source_basis,
-    )
-    compute_bridge([row], bridge)
-    return row.values_for_basis(basis)
 
 
 def get_dashboard_results(session_data: dict, source_results: dict) -> dict:

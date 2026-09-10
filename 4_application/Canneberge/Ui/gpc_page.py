@@ -725,12 +725,6 @@ class GPCPage(QWidget):
         self._bridge_low_high_headers = [low_hdr, high_hdr]
         self._current_row += 1
 
-        # Kept for compatibility with any external references; unused now.
-        self.bridge_computed_labels_low = {}
-        self.bridge_computed_labels_high = {}
-        self.bridge_labels_low = {}
-        self.bridge_labels_high = {}
-
         # Dashboard-owned inputs shown here read-only (mirrors, not sources).
         # nwc comes from the NWC page; non_op / CP / DLOC from Dashboard.
         self.nwc_input = CurrencyInputEdit(placeholder="from NWC page", width=W_METRIC - 10)

@@ -1,30 +1,17 @@
 """
-chart_helper.py — hidden value-bridge engine behind the Dashboard's
-Reconciliation of Values box and football-field chart.
+chart_helper.py — football-field / reverse-DCF chart helpers and
+weighted_conclusion.
 
-Mirrors the Excel NEW_Chart Helper tab exactly:
+Valuation-level bridging (BEV↔Equity, Controlling↔Minority, CP/DLOC)
+lives in Canneberge.Calculations.value_bridge, not here.
 
-    Indicated BEV
-    + Cash & Equivalents
-    + DFCFNWC Surplus (Deficit)
-    + Acquired NOL            (0 for now — public subject)
-    + Non-Operating           (0 for now)
-    = Invested Capital
-    - Debt
-    - Liquidation             (subject TTM Preferred Stock)
-    = FMV of Equity           (x (1 - DLOC) on controlling-basis rows)
-    / Shares Outstanding
-    = $ / Share
-
-DLOC applies only to controlling-basis methods (DCF, GT). GPC is
-already marketable-noncontrolling, so no DLOC on GPC rows.
-
-Never displayed anywhere; consumed by the Dashboard only.
+MethodRow remains a lightweight display container for football-field
+bars and similar UI consumers.
 """
 
 import math
 import statistics
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional, List, Dict, Any
 
 from Canneberge.Calculations.reverse_dcf import (
@@ -74,95 +61,6 @@ class MethodRow:
         if basis == "$/Share":
             return self.per_share_low, self.per_share_high
         return self.bev_low, self.bev_high
-
-
-@dataclass
-class BridgeInputs:
-    cash: Optional[float] = None
-    nwc_surplus: Optional[float] = None
-    acquired_nol: float = 0.0
-    non_operating: float = 0.0
-    debt: Optional[float] = None
-    liquidation: Optional[float] = None   # subject TTM preferred stock
-    dloc: Optional[float] = None          # fraction, e.g. 0.194
-    shares_outstanding: Optional[float] = None
-    share_price: Optional[float] = None   # for the chart marker line
-
-
-def compute_bridge(rows: List[MethodRow], inputs: BridgeInputs) -> List[MethodRow]:
-    """Runs the bridge on every method row, in place.
-
-    source_basis == "BEV":
-        BEV + additions = IC; IC - debt - liq = Equity;
-        optional DLOC; / shares = $/sh
-
-    source_basis == "Equity":
-        Equity is kept exactly as the source page emitted it.
-        No DLOC. Implied BEV = Equity + debt + liq - additions.
-        $/sh = Equity / shares.
-    """
-    cash = inputs.cash or 0.0
-    nwc = inputs.nwc_surplus or 0.0
-    nol = inputs.acquired_nol or 0.0
-    non_op = inputs.non_operating or 0.0
-    debt = inputs.debt or 0.0
-    liq = inputs.liquidation or 0.0
-    dloc = inputs.dloc or 0.0
-    shares = inputs.shares_outstanding
-
-    additions = cash + nwc + nol + non_op
-    deductions = debt + liq
-
-    _dbg(
-        "inputs",
-        f"cash={cash:,.2f} nwc={nwc:,.2f} nol={nol:,.2f} "
-        f"non_op={non_op:,.2f} debt={debt:,.2f} liq={liq:,.2f} "
-        f"dloc={dloc:.4f} shares={shares}",
-    )
-
-    for row in rows:
-        if row.bev_low is None and row.bev_high is None:
-            _dbg("row", f"{row.name}: no values, skipped")
-            continue
-
-        for side in ("low", "high"):
-            src = getattr(row, f"bev_{side}")
-            if src is None:
-                continue
-
-            if getattr(row, "source_basis", "BEV") == "Equity":
-                equity = src
-                bev = equity + deductions - additions
-                ic = bev + additions
-                per_share = (equity / shares) if shares else None
-
-                setattr(row, f"bev_{side}", bev)
-                setattr(row, f"ic_{side}", ic)
-                setattr(row, f"equity_{side}", equity)
-                setattr(row, f"per_share_{side}", per_share)
-            else:
-                bev = src
-                ic = bev + additions
-                equity = ic - deductions
-                if row.apply_dloc and dloc:
-                    equity = equity * (1.0 - dloc)
-                per_share = (equity / shares) if shares else None
-
-                setattr(row, f"ic_{side}", ic)
-                setattr(row, f"equity_{side}", equity)
-                setattr(row, f"per_share_{side}", per_share)
-
-        _dbg(
-            "row",
-            f"{row.name} [{getattr(row, 'source_basis', 'BEV')}]: "
-            f"BEV=({row.bev_low}, {row.bev_high}) "
-            f"IC=({row.ic_low}, {row.ic_high}) "
-            f"Eq=({row.equity_low}, {row.equity_high}) "
-            f"$/sh=({row.per_share_low}, {row.per_share_high}) "
-            f"dloc={'Y' if row.apply_dloc else 'N'}",
-        )
-
-    return rows
 
 
 # =============================================================
