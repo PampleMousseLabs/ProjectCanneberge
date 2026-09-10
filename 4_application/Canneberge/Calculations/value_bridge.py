@@ -67,26 +67,12 @@ class BridgeInputs:
     share_price: Optional[float] = None
 
 
-def _sum_present(*vals: Optional[float]) -> Optional[float]:
-    """None-safe sum. Any None input -> None output (matches GPC page's _sum_or_na)."""
-    if any(v is None for v in vals):
-        return None
-    return sum(vals)
-
-
-def _fmt_pct_label(base: str, rate: Optional[float]) -> str:
-    if rate is None:
-        return f"{base} (NA)"
-    return f"{base} ({rate * 100:.1f}%)"
-
-
 def run_bridge(
     low: Optional[float],
     high: Optional[float],
     natural_level: str,
     source_basis: str,
     bi: BridgeInputs,
-    equity_mode_includes_cash: bool = False,
 ) -> dict:
     """
     Convert a method's natural valuation level into all relevant
@@ -99,6 +85,12 @@ def run_bridge(
     Source bases:
         Equity -> equity value
         BEV    -> business enterprise value
+
+    Equity mode never adds gross Cash. Equity multiples such as P/E and
+    P/Revenue already embed the peer's own cash balance, so adding subject
+    cash again would double count. Only NWC Surplus/(Deficit) and
+    Non-Operating Assets are added in Equity mode. BEV mode adds Cash
+    because EV multiples are cash-free by construction.
     """
     if natural_level not in ("controlling", "minority"):
         raise ValueError("natural_level must be 'controlling' or 'minority'")
@@ -117,19 +109,6 @@ def run_bridge(
 
     deductions_from_bev = debt + preferred + nci
     additions_to_equity = cash + nwc + non_op
-
-    def pair_add(a, b):
-        return (
-            None if a is None or b is None else a + b,
-            None if a is None or b is None else b + a,
-        )
-
-    def pair_apply(values, fn):
-        lo, hi = values
-        return (
-            fn(lo) if lo is not None else None,
-            fn(hi) if hi is not None else None,
-        )
 
     lines: List[Tuple[str, Optional[float], Optional[float]]] = []
 

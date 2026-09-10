@@ -1,6 +1,6 @@
 import math
 import statistics
-from typing import Optional, List, Dict
+from typing import Optional, Dict
 
 from PyQt6.QtWidgets import (
     QWidget,
@@ -34,7 +34,6 @@ from Canneberge.Calculations.gpc_metrics import (
 )
 from Canneberge.Calculations.gpc_multiples import (
     compute_all_gpc_multiples,
-    get_ticker_bevs,
     get_subject_cash,
 )
 
@@ -1157,7 +1156,6 @@ class GPCPage(QWidget):
             natural_level="minority",
             source_basis=source_basis,
             bi=bi,
-            equity_mode_includes_cash=False,
         )
         self._last_bridge_result = result
 

@@ -1,0 +1,1507 @@
+F401 [*] `math` imported but unused
+  --> Canneberge/Calculations/gpc_multiples.py:10:8
+   |
+ 8 | """
+ 9 |
+10 | import math
+   |        ^^^^
+11 | from typing import Dict, Optional
+   |
+help: Remove unused import: `math`
+   |
+9  |
+   - import math
+10 | from typing import Dict, Optional
+   |
+
+F401 [*] `Canneberge.Transforms.sa_key.get_sa_label` imported but unused
+  --> Canneberge/Calculations/gpc_multiples.py:13:42
+   |
+11 | from typing import Dict, Optional
+12 |
+13 | from Canneberge.Transforms.sa_key import get_sa_label, get_sa_labels
+   |                                          ^^^^^^^^^^^^
+14 | from Canneberge.utils.sa_utils import build_lookup, to_float
+15 | from Canneberge.Calculations.gpc_metrics import GPC_METRICS
+   |
+help: Remove unused import: `Canneberge.Transforms.sa_key.get_sa_label`
+   |
+12 |
+   - from Canneberge.Transforms.sa_key import get_sa_label, get_sa_labels
+13 + from Canneberge.Transforms.sa_key import get_sa_labels
+14 | from Canneberge.utils.sa_utils import build_lookup, to_float
+   |
+
+F401 [*] `math` imported but unused
+  --> Canneberge/Calculations/gt.py:8:8
+   |
+ 6 | """
+ 7 |
+ 8 | import math
+   |        ^^^^
+ 9 | import statistics
+10 | from typing import Optional, List, Dict, Any
+   |
+help: Remove unused import: `math`
+  |
+7 |
+  - import math
+8 | import statistics
+  |
+
+F841 Local variable `total_w` is assigned to but never used
+   --> Canneberge/Calculations/gt.py:165:24
+    |
+163 |     # 5. Weighted FMV BEV
+164 |     fmv_low, fmv_high = None, None
+165 |     sum_low, sum_high, total_w = 0.0, 0.0, 0.0
+    |                        ^^^^^^^
+166 |     any_low, any_high = False, False
+    |
+help: Remove assignment to unused variable `total_w`
+
+F401 [*] `typing.List` imported but unused
+  --> Canneberge/Calculations/reverse_dcf.py:11:36
+   |
+ 9 | """
+10 |
+11 | from typing import Optional, Dict, List, Any
+   |                                    ^^^^
+12 |
+13 | from Canneberge.Calculations.gpc_multiples import get_ticker_metric
+   |
+help: Remove unused import: `typing.List`
+   |
+10 |
+   - from typing import Optional, Dict, List, Any
+11 + from typing import Optional, Dict, Any
+12 |
+   |
+
+F401 [*] `pandas` imported but unused
+ --> Canneberge/Transforms/period_mapper.py:7:22
+  |
+5 |     Returns DataFrame with normalized columns.
+6 |     """
+7 |     import pandas as pd
+  |                      ^^
+8 |
+9 |     rename_map = {}
+  |
+help: Remove unused import: `pandas`
+  |
+6 |     """
+  -     import pandas as pd
+7 |
+  |
+
+F401 [*] `typing.List` imported but unused
+ --> Canneberge/Ui/dcf_page.py:4:36
+  |
+2 | import re
+3 | from datetime import datetime
+4 | from typing import Optional, Dict, List
+  |                                    ^^^^
+5 |
+6 | from PyQt6.QtWidgets import (
+  |
+help: Remove unused import: `typing.List`
+  |
+3 | from datetime import datetime
+  - from typing import Optional, Dict, List
+4 + from typing import Optional, Dict
+5 |
+  |
+
+F401 [*] `Canneberge.Calculations.reverse_dcf.compute_ttm_fcfe` imported but unused
+  --> Canneberge/Ui/dcf_page.py:22:5
+   |
+20 |     solve_gordon_growth_ltgr,
+21 |     solve_h_model,
+22 |     compute_ttm_fcfe,
+   |     ^^^^^^^^^^^^^^^^
+23 | )
+24 | from Canneberge.Calculations.chart_helper import (
+   |
+help: Remove unused import: `Canneberge.Calculations.reverse_dcf.compute_ttm_fcfe`
+   |
+21 |     solve_h_model,
+   -     compute_ttm_fcfe,
+22 | )
+   |
+
+F401 [*] `Canneberge.Calculations.chart_helper.compute_indexed_series` imported but unused
+  --> Canneberge/Ui/dcf_page.py:26:5
+   |
+24 | from Canneberge.Calculations.chart_helper import (
+25 |     compute_gpc_chart_data,
+26 |     compute_indexed_series,
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+27 |     compute_indexed_summary_stats,
+28 | )
+   |
+help: Remove unused import: `Canneberge.Calculations.chart_helper.compute_indexed_series`
+   |
+25 |     compute_gpc_chart_data,
+   -     compute_indexed_series,
+26 |     compute_indexed_summary_stats,
+   |
+
+F401 [*] `Canneberge.Calculations.valuation_surface.compute_gg_surface_data` imported but unused
+  --> Canneberge/Ui/dcf_page.py:30:5
+   |
+28 | )
+29 | from Canneberge.Calculations.valuation_surface import (
+30 |     compute_gg_surface_data,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+31 |     compute_gg_surface_data_from_explicit,
+32 | )
+   |
+help: Remove unused import
+   |
+28 | )
+   - from Canneberge.Calculations.valuation_surface import (
+   -     compute_gg_surface_data,
+   -     compute_gg_surface_data_from_explicit,
+   - )
+29 | from Canneberge.Ui.valuation_surface_chart import GGSurfaceChart
+   |
+
+F401 [*] `Canneberge.Calculations.valuation_surface.compute_gg_surface_data_from_explicit` imported but unused
+  --> Canneberge/Ui/dcf_page.py:31:5
+   |
+29 | from Canneberge.Calculations.valuation_surface import (
+30 |     compute_gg_surface_data,
+31 |     compute_gg_surface_data_from_explicit,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+32 | )
+33 | from Canneberge.Ui.valuation_surface_chart import GGSurfaceChart
+   |
+help: Remove unused import
+   |
+28 | )
+   - from Canneberge.Calculations.valuation_surface import (
+   -     compute_gg_surface_data,
+   -     compute_gg_surface_data_from_explicit,
+   - )
+29 | from Canneberge.Ui.valuation_surface_chart import GGSurfaceChart
+   |
+
+F401 [*] `Canneberge.Ui.valuation_surface_chart.GGSurfaceChart` imported but unused
+  --> Canneberge/Ui/dcf_page.py:33:51
+   |
+31 |     compute_gg_surface_data_from_explicit,
+32 | )
+33 | from Canneberge.Ui.valuation_surface_chart import GGSurfaceChart
+   |                                                   ^^^^^^^^^^^^^^
+34 | from Canneberge.Calculations.ratio_catalogue import (
+35 |     debt_free_nwc_incl_cash,
+   |
+help: Remove unused import: `Canneberge.Ui.valuation_surface_chart.GGSurfaceChart`
+   |
+32 | )
+   - from Canneberge.Ui.valuation_surface_chart import GGSurfaceChart
+33 | from Canneberge.Calculations.ratio_catalogue import (
+   |
+
+F401 [*] `Canneberge.Calculations.ratio_catalogue.debt_free_nwc_incl_cash` imported but unused
+  --> Canneberge/Ui/dcf_page.py:35:5
+   |
+33 | from Canneberge.Ui.valuation_surface_chart import GGSurfaceChart
+34 | from Canneberge.Calculations.ratio_catalogue import (
+35 |     debt_free_nwc_incl_cash,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+36 |     debt_free_nwc_excl_cash,
+37 | )
+   |
+help: Remove unused import: `Canneberge.Calculations.ratio_catalogue.debt_free_nwc_incl_cash`
+   |
+34 | from Canneberge.Calculations.ratio_catalogue import (
+   -     debt_free_nwc_incl_cash,
+35 |     debt_free_nwc_excl_cash,
+   |
+
+F401 [*] `PyQt6.QtWidgets.QGroupBox` imported but unused
+   --> Canneberge/Ui/dcf_page.py:264:48
+    |
+262 |     # ------------------------------------------------------------------
+263 |     def _build_ui(self):
+264 |         from PyQt6.QtWidgets import QSplitter, QGroupBox
+    |                                                ^^^^^^^^^
+265 |         from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+266 |         from matplotlib.figure import Figure
+    |
+help: Remove unused import: `PyQt6.QtWidgets.QGroupBox`
+    |
+263 |     def _build_ui(self):
+    -         from PyQt6.QtWidgets import QSplitter, QGroupBox
+264 +         from PyQt6.QtWidgets import QSplitter
+265 |         from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+    |
+
+F811 [*] Redefinition of unused `compute_ttm_fcfe` from line 22
+   --> Canneberge/Ui/dcf_page.py:654:57
+    |
+652 |                 self.bridge_cells["ΔNWC"][col].setText(_fmt_currency2(yr["delta_nwc"]))
+653 |         # FCFE — TTM computed, rest from schedule
+654 |         from Canneberge.Calculations.reverse_dcf import compute_ttm_fcfe
+    |                                                         ^^^^^^^^^^^^^^^^ `compute_ttm_fcfe` redefined here
+655 |         fcfe_ttm = compute_ttm_fcfe(ni_ttm, rev_ttm, depr_pct, capex_pct)
+656 |         self.bridge_cells["FCFE"]["TTM"].setText(_fmt_currency2(fcfe_ttm))
+    |
+   ::: Canneberge/Ui/dcf_page.py:22:5
+    |
+ 20 |     solve_gordon_growth_ltgr,
+ 21 |     solve_h_model,
+ 22 |     compute_ttm_fcfe,
+    |     ---------------- previous definition of `compute_ttm_fcfe` here
+ 23 | )
+ 24 | from Canneberge.Calculations.chart_helper import (
+    |
+help: Remove definition: `compute_ttm_fcfe`
+    |
+653 |         # FCFE — TTM computed, rest from schedule
+    -         from Canneberge.Calculations.reverse_dcf import compute_ttm_fcfe
+654 |         fcfe_ttm = compute_ttm_fcfe(ni_ttm, rev_ttm, depr_pct, capex_pct)
+    |
+
+F841 Local variable `SOLID_IDX` is assigned to but never used
+   --> Canneberge/Ui/dcf_page.py:859:9
+    |
+857 |         # x indices: 0=TTM, 1=NFY, 2=NFY+1, 3=NFY+2, 4=Perp
+858 |         # solid segment: indices 0-3, dashed segment: indices 3-4
+859 |         SOLID_IDX  = slice(0, 4)   # TTM -> NFY+2
+    |         ^^^^^^^^^
+860 |         DASH_IDX   = slice(3, 5)   # NFY+2 -> Perp
+    |
+help: Remove assignment to unused variable `SOLID_IDX`
+
+F841 Local variable `DASH_IDX` is assigned to but never used
+   --> Canneberge/Ui/dcf_page.py:860:9
+    |
+858 |         # solid segment: indices 0-3, dashed segment: indices 3-4
+859 |         SOLID_IDX  = slice(0, 4)   # TTM -> NFY+2
+860 |         DASH_IDX   = slice(3, 5)   # NFY+2 -> Perp
+    |         ^^^^^^^^
+861 |
+862 |         def _plot_two_segment(ax, x, y_vals, color, lw, label, marker=None, ms=4, zorder=2):
+    |
+help: Remove assignment to unused variable `DASH_IDX`
+
+F841 Local variable `model` is assigned to but never used
+    --> Canneberge/Ui/dcf_page.py:1770:9
+     |
+1769 |     def _populate_terminal_value(self, wacc_val: Optional[float], inputs):
+1770 |         model = self.tv_model_combo.currentText()
+     |         ^^^^^
+1771 |         final_idx = self._num_hist + self._num_proj - 1
+1772 |         if final_idx < 0:
+     |
+help: Remove assignment to unused variable `model`
+
+F401 [*] `PyQt6.QtWidgets.QFrame` imported but unused
+  --> Canneberge/Ui/debt_schedule_page.py:11:42
+   |
+ 9 | from PyQt6.QtWidgets import (
+10 |     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QLineEdit,
+11 |     QScrollArea, QComboBox, QPushButton, QFrame,
+   |                                          ^^^^^^
+12 | )
+13 | from PyQt6.QtCore import Qt
+   |
+help: Remove unused import: `PyQt6.QtWidgets.QFrame`
+   |
+10 |     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QLineEdit,
+   -     QScrollArea, QComboBox, QPushButton, QFrame,
+11 +     QScrollArea, QComboBox, QPushButton,
+12 | )
+   |
+
+F401 [*] `PyQt6.QtCore.pyqtSignal` imported but unused
+  --> Canneberge/Ui/font_scale.py:27:35
+   |
+25 | """
+26 |
+27 | from PyQt6.QtCore import QObject, pyqtSignal, QSettings
+   |                                   ^^^^^^^^^^
+28 | from PyQt6.QtGui import QFont
+   |
+help: Remove unused import: `PyQt6.QtCore.pyqtSignal`
+   |
+26 |
+   - from PyQt6.QtCore import QObject, pyqtSignal, QSettings
+27 + from PyQt6.QtCore import QObject, QSettings
+28 | from PyQt6.QtGui import QFont
+   |
+
+F841 Local variable `legend` is assigned to but never used
+   --> Canneberge/Ui/football_field_chart.py:190:9
+    |
+188 |             Line2D([0], [0], color=t.chart_conclude, linewidth=2.2, label="Concluded FV"),
+189 |         ]
+190 |         legend = ax.legend(
+    |         ^^^^^^
+191 |             handles=legend_items, loc="lower right",
+192 |             fontsize=7.5, frameon=True, facecolor=t.window_bg,
+    |
+help: Remove assignment to unused variable `legend`
+
+F401 [*] `typing.List` imported but unused
+ --> Canneberge/Ui/gpc_page.py:3:30
+  |
+1 | import math
+2 | import statistics
+3 | from typing import Optional, List, Dict
+  |                              ^^^^
+4 |
+5 | from PyQt6.QtWidgets import (
+  |
+help: Remove unused import: `typing.List`
+  |
+2 | import statistics
+  - from typing import Optional, List, Dict
+3 + from typing import Optional, Dict
+4 |
+  |
+
+F401 [*] `Canneberge.Calculations.gpc_multiples.get_ticker_bevs` imported but unused
+  --> Canneberge/Ui/gpc_page.py:37:5
+   |
+35 | from Canneberge.Calculations.gpc_multiples import (
+36 |     compute_all_gpc_multiples,
+37 |     get_ticker_bevs,
+   |     ^^^^^^^^^^^^^^^
+38 |     get_subject_cash,
+39 | )
+   |
+help: Remove unused import: `Canneberge.Calculations.gpc_multiples.get_ticker_bevs`
+   |
+36 |     compute_all_gpc_multiples,
+   -     get_ticker_bevs,
+37 |     get_subject_cash,
+   |
+
+F401 [*] `typing.List` imported but unused
+ --> Canneberge/Ui/gt_page.py:2:30
+  |
+1 | import statistics
+2 | from typing import Optional, List
+  |                              ^^^^
+3 |
+4 | from PyQt6.QtWidgets import (
+  |
+help: Remove unused import: `typing.List`
+  |
+1 | import statistics
+  - from typing import Optional, List
+2 + from typing import Optional
+3 |
+  |
+
+F401 [*] `PyQt6.QtWidgets.QSizePolicy` imported but unused
+  --> Canneberge/Ui/gt_page.py:16:5
+   |
+14 |     QFrame,
+15 |     QHBoxLayout,
+16 |     QSizePolicy,
+   |     ^^^^^^^^^^^
+17 | )
+18 | from PyQt6.QtCore import Qt
+   |
+help: Remove unused import: `PyQt6.QtWidgets.QSizePolicy`
+   |
+15 |     QHBoxLayout,
+   -     QSizePolicy,
+16 | )
+   |
+
+F401 [*] `PyQt6.QtGui.QColor` imported but unused
+  --> Canneberge/Ui/gt_page.py:19:25
+   |
+17 | )
+18 | from PyQt6.QtCore import Qt
+19 | from PyQt6.QtGui import QColor
+   |                         ^^^^^^
+20 |
+21 | from Canneberge.app_state import Transaction
+   |
+help: Remove unused import: `PyQt6.QtGui.QColor`
+   |
+18 | from PyQt6.QtCore import Qt
+   - from PyQt6.QtGui import QColor
+19 |
+   |
+
+F401 [*] `Canneberge.app_state.Transaction` imported but unused
+  --> Canneberge/Ui/gt_page.py:21:34
+   |
+19 | from PyQt6.QtGui import QColor
+20 |
+21 | from Canneberge.app_state import Transaction
+   |                                  ^^^^^^^^^^^
+22 | from Canneberge.Ui.gpc_candlestick_chart import GPCCandlestickChart
+23 | from Canneberge.Ui.theme import theme_manager
+   |
+help: Remove unused import: `Canneberge.app_state.Transaction`
+   |
+20 |
+   - from Canneberge.app_state import Transaction
+21 | from Canneberge.Ui.gpc_candlestick_chart import GPCCandlestickChart
+   |
+
+F401 [*] `PyQt6.QtWidgets.QMenuBar` imported but unused
+ --> Canneberge/Ui/main_window.py:4:30
+  |
+3 | from PyQt6.QtWidgets import (
+4 |     QMainWindow, QTabWidget, QMenuBar, QMenu,
+  |                              ^^^^^^^^
+5 |     QFileDialog, QMessageBox, QProgressDialog
+6 | )
+  |
+help: Remove unused import
+  |
+3 | from PyQt6.QtWidgets import (
+  -     QMainWindow, QTabWidget, QMenuBar, QMenu,
+  -     QFileDialog, QMessageBox, QProgressDialog
+4 +     QMainWindow, QTabWidget, QFileDialog, QMessageBox, QProgressDialog
+5 | )
+  |
+
+F401 [*] `PyQt6.QtWidgets.QMenu` imported but unused
+ --> Canneberge/Ui/main_window.py:4:40
+  |
+3 | from PyQt6.QtWidgets import (
+4 |     QMainWindow, QTabWidget, QMenuBar, QMenu,
+  |                                        ^^^^^
+5 |     QFileDialog, QMessageBox, QProgressDialog
+6 | )
+  |
+help: Remove unused import
+  |
+3 | from PyQt6.QtWidgets import (
+  -     QMainWindow, QTabWidget, QMenuBar, QMenu,
+  -     QFileDialog, QMessageBox, QProgressDialog
+4 +     QMainWindow, QTabWidget, QFileDialog, QMessageBox, QProgressDialog
+5 | )
+  |
+
+F401 [*] `Canneberge.app_state.Transaction` imported but unused
+  --> Canneberge/Ui/main_window.py:22:69
+   |
+20 | from Canneberge.Ui.private_financials_input_page import PrivateFinancialsInputPage
+21 | from Canneberge.Ui.projection_module_page import ProjectionModulePage
+22 | from Canneberge.app_state import PrivateFinancials, ProjectionData, Transaction
+   |                                                                     ^^^^^^^^^^^
+23 | from Canneberge.utils.session import (
+24 |     save_session, load_session, list_sessions, SESSION_DIR
+   |
+help: Remove unused import: `Canneberge.app_state.Transaction`
+   |
+21 | from Canneberge.Ui.projection_module_page import ProjectionModulePage
+   - from Canneberge.app_state import PrivateFinancials, ProjectionData, Transaction
+22 + from Canneberge.app_state import PrivateFinancials, ProjectionData
+23 | from Canneberge.utils.session import (
+   |
+
+F401 [*] `Canneberge.utils.session.list_sessions` imported but unused
+  --> Canneberge/Ui/main_window.py:24:33
+   |
+22 | from Canneberge.app_state import PrivateFinancials, ProjectionData, Transaction
+23 | from Canneberge.utils.session import (
+24 |     save_session, load_session, list_sessions, SESSION_DIR
+   |                                 ^^^^^^^^^^^^^
+25 | )
+26 | from Canneberge.Calculations.reverse_dcf import extract_ticker_inputs
+   |
+help: Remove unused import: `Canneberge.utils.session.list_sessions`
+   |
+23 | from Canneberge.utils.session import (
+   -     save_session, load_session, list_sessions, SESSION_DIR
+24 +     save_session, load_session, SESSION_DIR
+25 | )
+   |
+
+F841 Local variable `btn_skip` is assigned to but never used
+    --> Canneberge/Ui/main_window.py:1133:9
+     |
+1131 |         btn_live = msg_box.addButton("⚡ Update Live Marks (2s)", QMessageBox.ButtonRole.AcceptRole)
+1132 |         btn_full = msg_box.addButton("🌐 Full Web Refresh (40s)", QMessageBox.ButtonRole.ActionRole)
+1133 |         btn_skip = msg_box.addButton("📁 Use Cached Data Only (0s)", QMessageBox.ButtonRole.RejectRole)
+     |         ^^^^^^^^
+1134 |         msg_box.setDefaultButton(btn_live)
+     |
+help: Remove assignment to unused variable `btn_skip`
+
+F401 [*] `math` imported but unused
+  --> Canneberge/Ui/nwc_page.py:55:8
+   |
+53 | """
+54 |
+55 | import math
+   |        ^^^^
+56 | import statistics
+57 | from typing import Optional, Dict, List
+   |
+help: Remove unused import: `math`
+   |
+54 |
+   - import math
+55 | import statistics
+   |
+
+F401 [*] `Canneberge.Ui.dcf_page.INDENT_STYLE` imported but unused
+  --> Canneberge/Ui/nwc_page.py:70:5
+   |
+68 | from Canneberge.Ui.font_scale import font_scale, NOTE_BASE_PX
+69 | from Canneberge.Ui.dcf_page import (
+70 |     INDENT_STYLE, MARGIN_ROW_STYLE, MARGIN_CELL_STYLE, COL_WIDTH,
+   |     ^^^^^^^^^^^^
+71 |     _fmt_currency, _fmt_pct, _safe_div, _sub_strict as _sub, _mul_strict as _mul,
+72 |     _parse_label_as_float, _read_label,
+   |
+help: Remove unused import
+   |
+69 | from Canneberge.Ui.dcf_page import (
+   -     INDENT_STYLE, MARGIN_ROW_STYLE, MARGIN_CELL_STYLE, COL_WIDTH,
+70 +     MARGIN_ROW_STYLE, MARGIN_CELL_STYLE, COL_WIDTH,
+71 |     _fmt_currency, _fmt_pct, _safe_div, _sub_strict as _sub, _mul_strict as _mul,
+   -     _parse_label_as_float, _read_label,
+72 +     _parse_label_as_float,
+73 | )
+   |
+
+F401 [*] `Canneberge.Ui.dcf_page._read_label` imported but unused
+  --> Canneberge/Ui/nwc_page.py:72:28
+   |
+70 |     INDENT_STYLE, MARGIN_ROW_STYLE, MARGIN_CELL_STYLE, COL_WIDTH,
+71 |     _fmt_currency, _fmt_pct, _safe_div, _sub_strict as _sub, _mul_strict as _mul,
+72 |     _parse_label_as_float, _read_label,
+   |                            ^^^^^^^^^^^
+73 | )
+74 | from Canneberge.Transforms.sa_key import get_sa_label
+   |
+help: Remove unused import
+   |
+69 | from Canneberge.Ui.dcf_page import (
+   -     INDENT_STYLE, MARGIN_ROW_STYLE, MARGIN_CELL_STYLE, COL_WIDTH,
+70 +     MARGIN_ROW_STYLE, MARGIN_CELL_STYLE, COL_WIDTH,
+71 |     _fmt_currency, _fmt_pct, _safe_div, _sub_strict as _sub, _mul_strict as _mul,
+   -     _parse_label_as_float, _read_label,
+72 +     _parse_label_as_float,
+73 | )
+   |
+
+F401 [*] `Canneberge.utils.sa_utils.to_float` imported but unused
+  --> Canneberge/Ui/nwc_page.py:75:53
+   |
+73 | )
+74 | from Canneberge.Transforms.sa_key import get_sa_label
+75 | from Canneberge.utils.sa_utils import build_lookup, to_float
+   |                                                     ^^^^^^^^
+76 | from Canneberge.Ui.subject_financials_page import _parse_val
+   |
+help: Remove unused import: `Canneberge.utils.sa_utils.to_float`
+   |
+74 | from Canneberge.Transforms.sa_key import get_sa_label
+   - from Canneberge.utils.sa_utils import build_lookup, to_float
+75 + from Canneberge.utils.sa_utils import build_lookup
+76 | from Canneberge.Ui.subject_financials_page import _parse_val
+   |
+
+F841 Local variable `all_keys` is assigned to but never used
+   --> Canneberge/Ui/private_financials_input_page.py:474:13
+    |
+472 |             # TTM = LFY - YTD_prior + YTD_current
+473 |             # Apply to every IS line item
+474 |             all_keys = [k for k, _, _, _ in IS_LINES]
+    |             ^^^^^^^^
+475 |             for key, label, is_calc, bold in IS_LINES:
+476 |                 lfy_val = (
+    |
+help: Remove assignment to unused variable `all_keys`
+
+F401 [*] `PyQt6.QtCore.Qt` imported but unused
+  --> Canneberge/Ui/source_data_page.py:14:26
+   |
+12 |     QButtonGroup,
+13 | )
+14 | from PyQt6.QtCore import Qt, pyqtSignal
+   |                          ^^
+15 |
+16 | from Canneberge.Workers.source_data_worker import SourceDataWorker
+   |
+help: Remove unused import: `PyQt6.QtCore.Qt`
+   |
+13 | )
+   - from PyQt6.QtCore import Qt, pyqtSignal
+14 + from PyQt6.QtCore import pyqtSignal
+15 |
+   |
+
+F401 [*] `Canneberge.app_state.PrivateFinancials` imported but unused
+  --> Canneberge/Ui/subject_financials_page.py:26:49
+   |
+24 |     _sub,
+25 | )
+26 | from Canneberge.app_state import ProjectInputs, PrivateFinancials, ProjectionData, IS_LINES, BS_LINES
+   |                                                 ^^^^^^^^^^^^^^^^^
+27 | from Canneberge.Ui.theme import theme_manager
+   |
+help: Remove unused import: `Canneberge.app_state.PrivateFinancials`
+   |
+25 | )
+   - from Canneberge.app_state import ProjectInputs, PrivateFinancials, ProjectionData, IS_LINES, BS_LINES
+26 + from Canneberge.app_state import ProjectInputs, ProjectionData, IS_LINES, BS_LINES
+27 | from Canneberge.Ui.theme import theme_manager
+   |
+
+F841 Local variable `ytd` is assigned to but never used
+   --> Canneberge/Ui/subject_financials_page.py:643:13
+    |
+641 |             ]
+642 |         else:
+643 |             ytd = ["YTD Prior", "YTD Current"]
+    |             ^^^
+644 |
+645 |         return hist + forward
+    |
+help: Remove assignment to unused variable `ytd`
+
+F401 [*] `typing.Optional` imported but unused
+ --> Canneberge/Ui/theory_page.py:5:20
+  |
+3 | Displays the academic reconciliation and Modigliani-Miller dynamics.
+4 | """
+5 | from typing import Optional
+  |                    ^^^^^^^^
+6 | from PyQt6.QtWidgets import (
+7 |     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, 
+  |
+help: Remove unused import: `typing.Optional`
+  |
+4 | """
+  - from typing import Optional
+5 | from PyQt6.QtWidgets import (
+  |
+
+F401 [*] `PyQt6.QtWidgets.QFrame` imported but unused
+  --> Canneberge/Ui/theory_page.py:8:18
+   |
+ 6 | from PyQt6.QtWidgets import (
+ 7 |     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, 
+ 8 |     QScrollArea, QFrame, QPushButton, QLineEdit
+   |                  ^^^^^^
+ 9 | )
+10 | from PyQt6.QtCore import Qt
+   |
+help: Remove unused import: `PyQt6.QtWidgets.QFrame`
+  |
+7 |     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, 
+  -     QScrollArea, QFrame, QPushButton, QLineEdit
+8 +     QScrollArea, QPushButton, QLineEdit
+9 | )
+  |
+
+F401 [*] `PyQt6.QtWidgets.QFrame` imported but unused
+  --> Canneberge/Ui/valuation_surface_chart.py:17:84
+   |
+16 | from PyQt6.QtWidgets import (
+17 |     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QSlider, QDoubleSpinBox, QGroupBox, QFrame
+   |                                                                                    ^^^^^^
+18 | )
+19 | from PyQt6.QtCore import Qt
+   |
+help: Remove unused import: `PyQt6.QtWidgets.QFrame`
+   |
+16 | from PyQt6.QtWidgets import (
+   -     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QSlider, QDoubleSpinBox, QGroupBox, QFrame
+17 +     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QSlider, QDoubleSpinBox, QGroupBox
+18 | )
+   |
+
+F841 Local variable `r` is assigned to but never used
+   --> Canneberge/Ui/wacc_page.py:397:9
+    |
+396 |     def _build_inputs_section(self):
+397 |         r = self._current_row
+    |         ^
+398 |
+399 |         self.beta_type_combo = QComboBox()
+    |
+help: Remove assignment to unused variable `r`
+
+F401 [*] `typing.Dict` imported but unused
+  --> web/components/projection_modal.py:15:30
+   |
+13 | import math
+14 | import traceback
+15 | from typing import Optional, Dict, List
+   |                              ^^^^
+16 |
+17 | import dash_bootstrap_components as dbc
+   |
+help: Remove unused import
+   |
+14 | import traceback
+   - from typing import Optional, Dict, List
+15 + from typing import Optional
+16 |
+   |
+
+F401 [*] `typing.List` imported but unused
+  --> web/components/projection_modal.py:15:36
+   |
+13 | import math
+14 | import traceback
+15 | from typing import Optional, Dict, List
+   |                                    ^^^^
+16 |
+17 | import dash_bootstrap_components as dbc
+   |
+help: Remove unused import
+   |
+14 | import traceback
+   - from typing import Optional, Dict, List
+15 + from typing import Optional
+16 |
+   |
+
+F841 Local variable `tax_rate` is assigned to but never used
+   --> web/components/projection_modal.py:473:5
+    |
+471 |             h_net_interest[p] = (income or 0.0) - (expense_cost or 0.0)
+472 |
+473 |     tax_rate = _tax_rate(session_data)
+    |     ^^^^^^^^
+474 |     ms = _load_ms_via_sakey(source_results, inputs.subject_ticker) if is_public else {
+475 |         "revenue": {}, "ebitda": {}, "net_income": {}
+    |
+help: Remove assignment to unused variable `tax_rate`
+
+F841 Local variable `ms` is assigned to but never used
+   --> web/components/projection_modal.py:474:5
+    |
+473 |     tax_rate = _tax_rate(session_data)
+474 |     ms = _load_ms_via_sakey(source_results, inputs.subject_ticker) if is_public else {
+    |     ^^
+475 |         "revenue": {}, "ebitda": {}, "net_income": {}
+476 |     }
+    |
+help: Remove assignment to unused variable `ms`
+
+F401 [*] `typing.Any` imported but unused
+  --> web/components/reverse_dcf_modal.py:18:20
+   |
+16 | from __future__ import annotations
+17 |
+18 | from typing import Any, Dict, List, Optional, Set
+   |                    ^^^
+19 |
+20 | import dash_bootstrap_components as dbc
+   |
+help: Remove unused import: `typing.Any`
+   |
+17 |
+   - from typing import Any, Dict, List, Optional, Set
+18 + from typing import Dict, List, Optional, Set
+19 |
+   |
+
+F401 [*] `typing.Any` imported but unused
+  --> web/lib/dashboard_data.py:14:20
+   |
+12 | from __future__ import annotations
+13 |
+14 | from typing import Any, Dict, List, Optional, Tuple
+   |                    ^^^
+15 |
+16 | from Canneberge.Calculations.chart_helper import weighted_conclusion
+   |
+help: Remove unused import
+   |
+13 |
+   - from typing import Any, Dict, List, Optional, Tuple
+14 + from typing import Optional
+15 |
+   |
+
+F401 [*] `typing.Dict` imported but unused
+  --> web/lib/dashboard_data.py:14:25
+   |
+12 | from __future__ import annotations
+13 |
+14 | from typing import Any, Dict, List, Optional, Tuple
+   |                         ^^^^
+15 |
+16 | from Canneberge.Calculations.chart_helper import weighted_conclusion
+   |
+help: Remove unused import
+   |
+13 |
+   - from typing import Any, Dict, List, Optional, Tuple
+14 + from typing import Optional
+15 |
+   |
+
+F401 [*] `typing.List` imported but unused
+  --> web/lib/dashboard_data.py:14:31
+   |
+12 | from __future__ import annotations
+13 |
+14 | from typing import Any, Dict, List, Optional, Tuple
+   |                               ^^^^
+15 |
+16 | from Canneberge.Calculations.chart_helper import weighted_conclusion
+   |
+help: Remove unused import
+   |
+13 |
+   - from typing import Any, Dict, List, Optional, Tuple
+14 + from typing import Optional
+15 |
+   |
+
+F401 [*] `typing.Tuple` imported but unused
+  --> web/lib/dashboard_data.py:14:47
+   |
+12 | from __future__ import annotations
+13 |
+14 | from typing import Any, Dict, List, Optional, Tuple
+   |                                               ^^^^^
+15 |
+16 | from Canneberge.Calculations.chart_helper import weighted_conclusion
+   |
+help: Remove unused import
+   |
+13 |
+   - from typing import Any, Dict, List, Optional, Tuple
+14 + from typing import Optional
+15 |
+   |
+
+F401 [*] `Canneberge.Calculations.gpc_multiples.compute_all_gpc_multiples` imported but unused
+  --> web/lib/dashboard_data.py:32:51
+   |
+30 | )
+31 | from Canneberge.Calculations.gpc_metrics import get_metric, dropdown_options
+32 | from Canneberge.Calculations.gpc_multiples import compute_all_gpc_multiples, get_subject_cash
+   |                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^
+33 | from Canneberge.Calculations.wacc import (
+34 |     BETA_TYPE_OPTIONS,
+   |
+help: Remove unused import: `Canneberge.Calculations.gpc_multiples.compute_all_gpc_multiples`
+   |
+31 | from Canneberge.Calculations.gpc_metrics import get_metric, dropdown_options
+   - from Canneberge.Calculations.gpc_multiples import compute_all_gpc_multiples, get_subject_cash
+32 + from Canneberge.Calculations.gpc_multiples import get_subject_cash
+33 | from Canneberge.Calculations.wacc import (
+   |
+
+F401 [*] `Canneberge.Calculations.wacc.BETA_TYPE_OPTIONS` imported but unused
+  --> web/lib/dashboard_data.py:34:5
+   |
+32 | from Canneberge.Calculations.gpc_multiples import compute_all_gpc_multiples, get_subject_cash
+33 | from Canneberge.Calculations.wacc import (
+34 |     BETA_TYPE_OPTIONS,
+   |     ^^^^^^^^^^^^^^^^^
+35 |     BETA_FREQUENCY_OPTIONS,
+36 |     CAPITAL_STRUCTURE_OPTIONS,
+   |
+help: Remove unused import
+   |
+32 | from Canneberge.Calculations.gpc_multiples import compute_all_gpc_multiples, get_subject_cash
+   - from Canneberge.Calculations.wacc import (
+   -     BETA_TYPE_OPTIONS,
+   -     BETA_FREQUENCY_OPTIONS,
+   -     CAPITAL_STRUCTURE_OPTIONS,
+   -     CORPORATE_RATE_SERIES,
+   - )
+33 | from web.lib.session_io import dict_to_project_inputs
+   |
+
+F401 [*] `Canneberge.Calculations.wacc.BETA_FREQUENCY_OPTIONS` imported but unused
+  --> web/lib/dashboard_data.py:35:5
+   |
+33 | from Canneberge.Calculations.wacc import (
+34 |     BETA_TYPE_OPTIONS,
+35 |     BETA_FREQUENCY_OPTIONS,
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+36 |     CAPITAL_STRUCTURE_OPTIONS,
+37 |     CORPORATE_RATE_SERIES,
+   |
+help: Remove unused import
+   |
+32 | from Canneberge.Calculations.gpc_multiples import compute_all_gpc_multiples, get_subject_cash
+   - from Canneberge.Calculations.wacc import (
+   -     BETA_TYPE_OPTIONS,
+   -     BETA_FREQUENCY_OPTIONS,
+   -     CAPITAL_STRUCTURE_OPTIONS,
+   -     CORPORATE_RATE_SERIES,
+   - )
+33 | from web.lib.session_io import dict_to_project_inputs
+   |
+
+F401 [*] `Canneberge.Calculations.wacc.CAPITAL_STRUCTURE_OPTIONS` imported but unused
+  --> web/lib/dashboard_data.py:36:5
+   |
+34 |     BETA_TYPE_OPTIONS,
+35 |     BETA_FREQUENCY_OPTIONS,
+36 |     CAPITAL_STRUCTURE_OPTIONS,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+37 |     CORPORATE_RATE_SERIES,
+38 | )
+   |
+help: Remove unused import
+   |
+32 | from Canneberge.Calculations.gpc_multiples import compute_all_gpc_multiples, get_subject_cash
+   - from Canneberge.Calculations.wacc import (
+   -     BETA_TYPE_OPTIONS,
+   -     BETA_FREQUENCY_OPTIONS,
+   -     CAPITAL_STRUCTURE_OPTIONS,
+   -     CORPORATE_RATE_SERIES,
+   - )
+33 | from web.lib.session_io import dict_to_project_inputs
+   |
+
+F401 [*] `Canneberge.Calculations.wacc.CORPORATE_RATE_SERIES` imported but unused
+  --> web/lib/dashboard_data.py:37:5
+   |
+35 |     BETA_FREQUENCY_OPTIONS,
+36 |     CAPITAL_STRUCTURE_OPTIONS,
+37 |     CORPORATE_RATE_SERIES,
+   |     ^^^^^^^^^^^^^^^^^^^^^
+38 | )
+39 | from web.lib.session_io import dict_to_project_inputs
+   |
+help: Remove unused import
+   |
+32 | from Canneberge.Calculations.gpc_multiples import compute_all_gpc_multiples, get_subject_cash
+   - from Canneberge.Calculations.wacc import (
+   -     BETA_TYPE_OPTIONS,
+   -     BETA_FREQUENCY_OPTIONS,
+   -     CAPITAL_STRUCTURE_OPTIONS,
+   -     CORPORATE_RATE_SERIES,
+   - )
+33 | from web.lib.session_io import dict_to_project_inputs
+   |
+
+F811 Redefinition of unused `GT_MAX` from line 44
+  --> web/lib/dashboard_data.py:48:1
+   |
+47 | GPC_MAX = 7
+48 | GT_MAX = 3
+   | ^^^^^^ `GT_MAX` redefined here
+49 | RECON_METHODS = ("DCF", "GPC", "GT", "GIPO", "NAV")
+50 | STAT_OPTIONS = [
+   |
+  ::: web/lib/dashboard_data.py:44:80
+   |
+42 | from web.lib.nwc_data import get_nwc_results
+43 | from web.lib.dcf_data import dcf_state_from_session, get_dcf_results
+44 | from web.lib.gt_data import get_gt_results, gt_state_from_session, MAX_COLS as GT_MAX
+   |                                                                                ------ previous definition of `GT_MAX` here
+help: Remove definition: `GT_MAX`
+
+F841 Local variable `inputs` is assigned to but never used
+   --> web/lib/dashboard_data.py:239:5
+    |
+238 | def _gpc_block(session_data: dict, source_results: dict) -> dict:
+239 |     inputs = dict_to_project_inputs(session_data or {})
+    |     ^^^^^^
+240 |     bucket = _gpc_bucket(session_data)
+241 |     try:
+    |
+help: Remove assignment to unused variable `inputs`
+
+F401 [*] `typing.Dict` imported but unused
+  --> web/lib/gt_data.py:12:25
+   |
+10 | from __future__ import annotations
+11 |
+12 | from typing import Any, Dict, List, Optional
+   |                         ^^^^
+13 |
+14 | from Canneberge.Calculations.gt import (
+   |
+help: Remove unused import
+   |
+11 |
+   - from typing import Any, Dict, List, Optional
+12 + from typing import Any, Optional
+13 |
+   |
+
+F401 [*] `typing.List` imported but unused
+  --> web/lib/gt_data.py:12:31
+   |
+10 | from __future__ import annotations
+11 |
+12 | from typing import Any, Dict, List, Optional
+   |                               ^^^^
+13 |
+14 | from Canneberge.Calculations.gt import (
+   |
+help: Remove unused import
+   |
+11 |
+   - from typing import Any, Dict, List, Optional
+12 + from typing import Any, Optional
+13 |
+   |
+
+F401 [*] `Canneberge.Calculations.gt.STAT_NAMES` imported but unused
+  --> web/lib/gt_data.py:16:5
+   |
+14 | from Canneberge.Calculations.gt import (
+15 |     METRICS,
+16 |     STAT_NAMES,
+   |     ^^^^^^^^^^
+17 |     calculate_gt,
+18 | )
+   |
+help: Remove unused import: `Canneberge.Calculations.gt.STAT_NAMES`
+   |
+15 |     METRICS,
+   -     STAT_NAMES,
+16 |     calculate_gt,
+   |
+
+F401 [*] `Canneberge.utils.session.SESSION_DIR` imported but unused
+  --> web/lib/session_io.py:16:5
+   |
+14 |     load_session as _core_load_session,
+15 |     list_sessions as _core_list_sessions,
+16 |     SESSION_DIR,
+   |     ^^^^^^^^^^^
+17 | )
+   |
+help: Remove unused import: `Canneberge.utils.session.SESSION_DIR`
+   |
+15 |     list_sessions as _core_list_sessions,
+   -     SESSION_DIR,
+16 | )
+   |
+
+F401 [*] `Canneberge.app_state.ProjectInputs` imported but unused
+  --> web/lib/subject_metrics.py:22:5
+   |
+21 | from Canneberge.app_state import (
+22 |     ProjectInputs, PrivateFinancials, ProjectionData, IS_LINES, BS_LINES
+   |     ^^^^^^^^^^^^^
+23 | )
+24 | from Canneberge.Transforms.sa_key import get_sa_labels, get_sa_source, get_sign_flip
+   |
+help: Remove unused import: `Canneberge.app_state.ProjectInputs`
+   |
+21 | from Canneberge.app_state import (
+   -     ProjectInputs, PrivateFinancials, ProjectionData, IS_LINES, BS_LINES
+22 +     PrivateFinancials, ProjectionData, IS_LINES, BS_LINES
+23 | )
+   |
+
+F401 [*] `web.lib.dashboard_data.dloc_from_cp` imported but unused
+  --> web/pages/dashboard.py:26:5
+   |
+24 |     GPC_MAX, GT_MAX, RECON_METHODS, STAT_OPTIONS, TV_MODELS, GT_METRICS,
+25 |     COST_ROWS, dashboard_state_from_session, get_dashboard_results,
+26 |     dloc_from_cp, parse_weight, _basis_key, _gpc_bucket,
+   |     ^^^^^^^^^^^^
+27 | )
+28 | from web.lib.session_io import dict_to_project_inputs
+   |
+help: Remove unused import
+   |
+25 |     COST_ROWS, dashboard_state_from_session, get_dashboard_results,
+   -     dloc_from_cp, parse_weight, _basis_key, _gpc_bucket,
+26 +     _basis_key, _gpc_bucket,
+27 | )
+   |
+
+F401 [*] `web.lib.dashboard_data.parse_weight` imported but unused
+  --> web/pages/dashboard.py:26:19
+   |
+24 |     GPC_MAX, GT_MAX, RECON_METHODS, STAT_OPTIONS, TV_MODELS, GT_METRICS,
+25 |     COST_ROWS, dashboard_state_from_session, get_dashboard_results,
+26 |     dloc_from_cp, parse_weight, _basis_key, _gpc_bucket,
+   |                   ^^^^^^^^^^^^
+27 | )
+28 | from web.lib.session_io import dict_to_project_inputs
+   |
+help: Remove unused import
+   |
+25 |     COST_ROWS, dashboard_state_from_session, get_dashboard_results,
+   -     dloc_from_cp, parse_weight, _basis_key, _gpc_bucket,
+26 +     _basis_key, _gpc_bucket,
+27 | )
+   |
+
+F401 [*] `typing.Any` imported but unused
+  --> web/pages/dcf.py:16:20
+   |
+14 | from __future__ import annotations
+15 |
+16 | from typing import Any, Dict, List, Optional
+   |                    ^^^
+17 |
+18 | import dash
+   |
+help: Remove unused import
+   |
+15 |
+   - from typing import Any, Dict, List, Optional
+16 + from typing import Dict, Optional
+17 |
+   |
+
+F401 [*] `typing.List` imported but unused
+  --> web/pages/dcf.py:16:31
+   |
+14 | from __future__ import annotations
+15 |
+16 | from typing import Any, Dict, List, Optional
+   |                               ^^^^
+17 |
+18 | import dash
+   |
+help: Remove unused import
+   |
+15 |
+   - from typing import Any, Dict, List, Optional
+16 + from typing import Dict, Optional
+17 |
+   |
+
+F401 [*] `Canneberge.Calculations.dcf.FACTOR_ROWS` imported but unused
+  --> web/pages/dcf.py:24:32
+   |
+22 | from Canneberge.Calculations.dcf import (
+23 |     ROW_SPECS, ROWS_WITH_BORDER_ABOVE, ROWS_WITH_SPACER_ABOVE,
+24 |     HIST_BLANK_ROWS, PCT_ROWS, FACTOR_ROWS, TV_MODELS,
+   |                                ^^^^^^^^^^^
+25 |     SENS_OFFSETS, SENS_HIGH_COORD, SENS_LOW_COORD, SENS_CENTER_COORD,
+26 |     parse_pct, parse_number, normalise_rate,
+   |
+help: Remove unused import: `Canneberge.Calculations.dcf.FACTOR_ROWS`
+   |
+23 |     ROW_SPECS, ROWS_WITH_BORDER_ABOVE, ROWS_WITH_SPACER_ABOVE,
+   -     HIST_BLANK_ROWS, PCT_ROWS, FACTOR_ROWS, TV_MODELS,
+24 +     HIST_BLANK_ROWS, PCT_ROWS, TV_MODELS,
+25 |     SENS_OFFSETS, SENS_HIGH_COORD, SENS_LOW_COORD, SENS_CENTER_COORD,
+   |
+
+F401 [*] `datetime.date` imported but unused
+  --> web/pages/debt_schedule.py:38:22
+   |
+36 | from __future__ import annotations
+37 |
+38 | from datetime import date
+   |                      ^^^^
+39 | from typing import Optional
+   |
+help: Remove unused import: `datetime.date`
+   |
+37 |
+   - from datetime import date
+38 | from typing import Optional
+   |
+
+F401 [*] `Canneberge.Calculations.gpc_metrics.GPC_METRICS` imported but unused
+  --> web/pages/gpc.py:29:49
+   |
+27 | from web.lib.subject_metrics import get_subject_metric_value
+28 | from Canneberge.Calculations.gpc_multiples import compute_all_gpc_multiples, get_subject_cash
+29 | from Canneberge.Calculations.gpc_metrics import GPC_METRICS, dropdown_options, get_metric, CUSTOM_MULTIPLE_LABEL
+   |                                                 ^^^^^^^^^^^
+30 | from Canneberge.Calculations.gpc_multiples import get_subject_cash
+31 | from Canneberge.Calculations.value_bridge import BridgeInputs, run_bridge
+   |
+help: Remove unused import: `Canneberge.Calculations.gpc_metrics.GPC_METRICS`
+   |
+28 | from Canneberge.Calculations.gpc_multiples import compute_all_gpc_multiples, get_subject_cash
+   - from Canneberge.Calculations.gpc_metrics import GPC_METRICS, dropdown_options, get_metric, CUSTOM_MULTIPLE_LABEL
+29 + from Canneberge.Calculations.gpc_metrics import dropdown_options, get_metric, CUSTOM_MULTIPLE_LABEL
+30 | from Canneberge.Calculations.gpc_multiples import get_subject_cash
+   |
+
+F811 [*] Redefinition of unused `get_subject_cash` from line 28
+  --> web/pages/gpc.py:30:51
+   |
+26 | from web.lib.session_io import dict_to_project_inputs
+27 | from web.lib.subject_metrics import get_subject_metric_value
+28 | from Canneberge.Calculations.gpc_multiples import compute_all_gpc_multiples, get_subject_cash
+   |                                                                              ---------------- previous definition of `get_subject_cash` here
+29 | from Canneberge.Calculations.gpc_metrics import GPC_METRICS, dropdown_options, get_metric, CUSTOM_MULTIPLE_LABEL
+30 | from Canneberge.Calculations.gpc_multiples import get_subject_cash
+   |                                                   ^^^^^^^^^^^^^^^^ `get_subject_cash` redefined here
+31 | from Canneberge.Calculations.value_bridge import BridgeInputs, run_bridge
+32 | from Canneberge.Calculations.dcf import parse_number
+   |
+help: Remove definition: `get_subject_cash`
+   |
+29 | from Canneberge.Calculations.gpc_metrics import GPC_METRICS, dropdown_options, get_metric, CUSTOM_MULTIPLE_LABEL
+   - from Canneberge.Calculations.gpc_multiples import get_subject_cash
+30 | from Canneberge.Calculations.value_bridge import BridgeInputs, run_bridge
+   |
+
+F811 [*] Redefinition of unused `get_subject_metric_value` from line 27
+  --> web/pages/gpc.py:34:55
+   |
+32 | from Canneberge.Calculations.dcf import parse_number
+33 | from web.lib.dashboard_data import parse_weight, dashboard_state_from_session
+34 | from web.lib.subject_metrics import get_subject_debt, get_subject_metric_value
+   |                                                       ^^^^^^^^^^^^^^^^^^^^^^^^ `get_subject_metric_value` redefined here
+35 | from web.components.gt_range_chart import gt_range_chart
+   |
+  ::: web/pages/gpc.py:27:37
+   |
+26 | from web.lib.session_io import dict_to_project_inputs
+27 | from web.lib.subject_metrics import get_subject_metric_value
+   |                                     ------------------------ previous definition of `get_subject_metric_value` here
+28 | from Canneberge.Calculations.gpc_multiples import compute_all_gpc_multiples, get_subject_cash
+29 | from Canneberge.Calculations.gpc_metrics import GPC_METRICS, dropdown_options, get_metric, CUSTOM_MULTIPLE_LABEL
+   |
+help: Remove definition: `get_subject_metric_value`
+   |
+33 | from web.lib.dashboard_data import parse_weight, dashboard_state_from_session
+   - from web.lib.subject_metrics import get_subject_debt, get_subject_metric_value
+34 + from web.lib.subject_metrics import get_subject_debt
+35 | from web.components.gt_range_chart import gt_range_chart
+   |
+
+F841 Local variable `total_w` is assigned to but never used
+   --> web/pages/gpc.py:710:5
+    |
+708 |     fmv_low = None
+709 |     fmv_high = None
+710 |     total_w = 0.0
+    |     ^^^^^^^
+711 |     sum_low, sum_high = 0.0, 0.0
+712 |     any_present = False
+    |
+help: Remove assignment to unused variable `total_w`
+
+F401 [*] `web.lib.subject_metrics.get_subject_metric_value` imported but unused
+  --> web/pages/gt.py:23:37
+   |
+22 | from web.lib.session_io import dict_to_project_inputs
+23 | from web.lib.subject_metrics import get_subject_metric_value
+   |                                     ^^^^^^^^^^^^^^^^^^^^^^^^
+24 | from web.lib.gt_data import (
+25 |     gt_state_from_session, get_gt_results,
+   |
+help: Remove unused import: `web.lib.subject_metrics.get_subject_metric_value`
+   |
+22 | from web.lib.session_io import dict_to_project_inputs
+   - from web.lib.subject_metrics import get_subject_metric_value
+23 | from web.lib.gt_data import (
+   |
+
+F401 [*] `web.lib.gt_data._fmt_multiple` imported but unused
+  --> web/pages/gt.py:27:5
+   |
+25 |     gt_state_from_session, get_gt_results,
+26 |     METRICS, MAX_COLS, MAX_ROWS, STAT_NAMES,
+27 |     _fmt_multiple, _fmt_currency, _fmt_pct,
+   |     ^^^^^^^^^^^^^
+28 | )
+29 | from web.components.gt_range_chart import gt_range_chart
+   |
+help: Remove unused import: `web.lib.gt_data._fmt_multiple`
+   |
+26 |     METRICS, MAX_COLS, MAX_ROWS, STAT_NAMES,
+   -     _fmt_multiple, _fmt_currency, _fmt_pct,
+27 +     _fmt_currency, _fmt_pct,
+28 | )
+   |
+
+F841 Local variable `col_metric` is assigned to but never used
+   --> web/pages/gt.py:296:9
+    |
+294 |     low_cells = _leading_cells("Selected Multiple — Low")
+295 |     for i in range(n_cols):
+296 |         col_metric = metric_col_values[i]
+    |         ^^^^^^^^^^
+297 |         vals = calc["multiples_per_col"][i] if i < len(calc["multiples_per_col"]) else []
+298 |         med = statistics.median(vals) if vals else None
+    |
+help: Remove assignment to unused variable `col_metric`
+
+F841 Local variable `weights` is assigned to but never used
+   --> web/pages/gt.py:363:5
+    |
+361 |     indicated_low = calc["indicated_low"]
+362 |     indicated_high = calc["indicated_high"]
+363 |     weights = calc["weights"]
+    |     ^^^^^^^
+364 |     fmv_low = calc["fmv_low"]
+365 |     fmv_high = calc["fmv_high"]
+    |
+help: Remove assignment to unused variable `weights`
+
+F401 [*] `dash.ctx` imported but unused
+ --> web/pages/home.py:3:89
+  |
+1 | import dash
+2 | import dash_bootstrap_components as dbc
+3 | from dash import html, dcc, Input, Output, State, callback, dash_table, ALL, no_update, ctx
+  |                                                                                         ^^^
+4 | import yfinance as yf
+  |
+help: Remove unused import: `dash.ctx`
+  |
+2 | import dash_bootstrap_components as dbc
+  - from dash import html, dcc, Input, Output, State, callback, dash_table, ALL, no_update, ctx
+3 + from dash import html, dcc, Input, Output, State, callback, dash_table, ALL, no_update
+4 | import yfinance as yf
+  |
+
+F841 [*] Local variable `e` is assigned to but never used
+   --> web/pages/home.py:515:25
+    |
+513 |             gpc_tickers_out, gt_transactions, hist_yrs, proj_yrs
+514 |         )
+515 |     except Exception as e:
+    |                         ^
+516 |         import traceback
+517 |         print("❌ Error during Home Page Hydration Callback:")
+    |
+help: Remove assignment to unused variable `e`
+    |
+514 |         )
+    -     except Exception as e:
+515 +     except Exception:
+516 |         import traceback
+    |
+
+F401 [*] `dash.dcc` imported but unused
+ --> web/pages/source_data.py:3:24
+  |
+1 | import dash
+2 | import dash_bootstrap_components as dbc
+3 | from dash import html, dcc, Input, Output, State, callback, dash_table, ctx
+  |                        ^^^
+4 | import pandas as pd
+5 | import json
+  |
+help: Remove unused import: `dash.dcc`
+  |
+2 | import dash_bootstrap_components as dbc
+  - from dash import html, dcc, Input, Output, State, callback, dash_table, ctx
+3 + from dash import html, Input, Output, State, callback, dash_table, ctx
+4 | import pandas as pd
+  |
+
+F401 [*] `json` imported but unused
+ --> web/pages/source_data.py:5:8
+  |
+3 | from dash import html, dcc, Input, Output, State, callback, dash_table, ctx
+4 | import pandas as pd
+5 | import json
+  |        ^^^^
+6 |
+7 | from Canneberge.Services.source_data_service import SourceDataService
+  |
+help: Remove unused import: `json`
+  |
+4 | import pandas as pd
+  - import json
+5 |
+  |
+
+F811 [*] Redefinition of unused `grid_table_style` from line 10
+  --> web/pages/source_data.py:16:31
+   |
+14 |     grid_data_style,
+15 | )
+16 | from web.lib.ui_layout import grid_table_style
+   |                               ^^^^^^^^^^^^^^^^ `grid_table_style` redefined here
+17 |
+18 | dash.register_page(__name__, path="/source-data", name="Source Data")
+   |
+  ::: web/pages/source_data.py:10:5
+   |
+ 8 | from Canneberge.app_state import ProjectInputs, Transaction
+ 9 | from web.lib.ui_layout import (
+10 |     grid_table_style,
+   |     ---------------- previous definition of `grid_table_style` here
+11 |     grid_header_style,
+12 |     grid_cell_style,
+   |
+help: Remove definition: `grid_table_style`
+   |
+15 | )
+   - from web.lib.ui_layout import grid_table_style
+16 |
+   |
+
+F401 [*] `dash.dcc` imported but unused
+  --> web/pages/subject_financials.py:12:24
+   |
+10 | import dash
+11 | import dash_bootstrap_components as dbc
+12 | from dash import html, dcc, Input, Output, State, callback, dash_table, ctx
+   |                        ^^^
+13 | import pandas as pd
+   |
+help: Remove unused import
+   |
+11 | import dash_bootstrap_components as dbc
+   - from dash import html, dcc, Input, Output, State, callback, dash_table, ctx
+12 + from dash import html, Input, Output, callback, dash_table
+13 | import pandas as pd
+   |
+
+F401 [*] `dash.State` imported but unused
+  --> web/pages/subject_financials.py:12:44
+   |
+10 | import dash
+11 | import dash_bootstrap_components as dbc
+12 | from dash import html, dcc, Input, Output, State, callback, dash_table, ctx
+   |                                            ^^^^^
+13 | import pandas as pd
+   |
+help: Remove unused import
+   |
+11 | import dash_bootstrap_components as dbc
+   - from dash import html, dcc, Input, Output, State, callback, dash_table, ctx
+12 + from dash import html, Input, Output, callback, dash_table
+13 | import pandas as pd
+   |
+
+F401 [*] `dash.ctx` imported but unused
+  --> web/pages/subject_financials.py:12:73
+   |
+10 | import dash
+11 | import dash_bootstrap_components as dbc
+12 | from dash import html, dcc, Input, Output, State, callback, dash_table, ctx
+   |                                                                         ^^^
+13 | import pandas as pd
+   |
+help: Remove unused import
+   |
+11 | import dash_bootstrap_components as dbc
+   - from dash import html, dcc, Input, Output, State, callback, dash_table, ctx
+12 + from dash import html, Input, Output, callback, dash_table
+13 | import pandas as pd
+   |
+
+F401 [*] `Canneberge.Calculations.wacc.DATA_COLS` imported but unused
+  --> web/pages/wacc.py:35:5
+   |
+33 |     BETA_TYPE_OPTIONS, BETA_FREQUENCY_OPTIONS, CAPITAL_STRUCTURE_OPTIONS,
+34 |     CAPITAL_STRUCTURE_HEADER_MAP, CORPORATE_RATE_SERIES,
+35 |     DATA_COLS, BETA_COLS, STAT_NAMES,
+   |     ^^^^^^^^^
+36 |     parse_pct_input, to_float, fmt_beta, fmt_pct,
+37 |     comp_table, column_statistics,
+   |
+help: Remove unused import: `Canneberge.Calculations.wacc.DATA_COLS`
+   |
+34 |     CAPITAL_STRUCTURE_HEADER_MAP, CORPORATE_RATE_SERIES,
+   -     DATA_COLS, BETA_COLS, STAT_NAMES,
+35 +     BETA_COLS, STAT_NAMES,
+36 |     parse_pct_input, to_float, fmt_beta, fmt_pct,
+   |
+
+Found 88 errors.
+[*] 72 fixable with the `--fix` option (15 hidden fixes can be enabled with the `--unsafe-fixes` option).

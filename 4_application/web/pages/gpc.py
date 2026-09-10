@@ -26,12 +26,11 @@ from dash import html, dcc, Input, Output, State, callback, ALL, no_update, ctx
 from web.lib.session_io import dict_to_project_inputs
 from web.lib.subject_metrics import get_subject_metric_value
 from Canneberge.Calculations.gpc_multiples import compute_all_gpc_multiples, get_subject_cash
-from Canneberge.Calculations.gpc_metrics import GPC_METRICS, dropdown_options, get_metric, CUSTOM_MULTIPLE_LABEL
-from Canneberge.Calculations.gpc_multiples import get_subject_cash
+from Canneberge.Calculations.gpc_metrics import dropdown_options, get_metric, CUSTOM_MULTIPLE_LABEL
 from Canneberge.Calculations.value_bridge import BridgeInputs, run_bridge
 from Canneberge.Calculations.dcf import parse_number
 from web.lib.dashboard_data import parse_weight, dashboard_state_from_session
-from web.lib.subject_metrics import get_subject_debt, get_subject_metric_value
+from web.lib.subject_metrics import get_subject_debt
 from web.components.gt_range_chart import gt_range_chart
 
 dash.register_page(__name__, path="/gpc", name="GPC Metrics")
@@ -203,38 +202,12 @@ layout = dbc.Container([
 
                 dbc.Col([
                     dbc.Label("DLOC % (Dashboard)", className="me-2 mb-0 text-muted"),
-                    dbc.Input(
-                        id="gpc-dloc-pct", type="text", value="0%",
-                        style={
-                            "width": "80px",
-                            "backgroundColor": "transparent",
-                            "border": "0",
-                            "color": "#f8f9fa",
-                            "opacity": 1,
-                            "textAlign": "right",
-                        },
-                        debounce=True, size="sm",
-                        className="d-inline-block",
-                        disabled=True,
-                    ),
+                    html.Span("0%", id="gpc-dloc-pct", className="text-light"),
                 ], xs=6, md="auto"),
 
                 dbc.Col([
                     dbc.Label("Control Premium % (Dashboard)", className="me-2 mb-0 text-muted"),
-                    dbc.Input(
-                        id="gpc-control-premium-pct", type="text", value="0%",
-                        style={
-                            "width": "80px",
-                            "backgroundColor": "transparent",
-                            "border": "0",
-                            "color": "#f8f9fa",
-                            "opacity": 1,
-                            "textAlign": "right",
-                        },
-                        debounce=True, size="sm",
-                        className="d-inline-block",
-                        disabled=True,
-                    ),
+                    html.Span("0%", id="gpc-control-premium-pct", className="text-light"),
                 ], xs=6, md="auto"),
             ], className="align-items-center g-2"),
         ], className="py-1 px-2")
@@ -283,37 +256,12 @@ layout = dbc.Container([
                 dbc.Col([
                     dbc.Label("NWC Surplus (Deficit) — from NWC page",
                               className="text-muted small"),
-                    dbc.Input(
-                        id="gpc-nwc-input", type="text", value="0",
-                        size="sm",
-                        style={
-                            "width": "140px",
-                            "backgroundColor": "transparent",
-                            "border": "0",
-                            "color": "#f8f9fa",
-                            "opacity": 1,
-                            "textAlign": "right",
-                        },
-                        debounce=True,
-                        disabled=True,
-                    ),
+                    html.Div("0", id="gpc-nwc-input", className="text-light"),
                 ], xs=6, md="auto"),
                 dbc.Col([
-                    dbc.Label("Non-Operating Assets, Net — from Dashboard", className="text-muted small"),
-                    dbc.Input(
-                        id="gpc-non-op-input", type="text", value="0",
-                        size="sm",
-                        style={
-                            "width": "140px",
-                            "backgroundColor": "transparent",
-                            "border": "0",
-                            "color": "#f8f9fa",
-                            "opacity": 1,
-                            "textAlign": "right",
-                        },
-                        debounce=True,
-                        disabled=True,
-                    ),
+                    dbc.Label("Non-Operating Assets, Net — from Dashboard",
+                              className="text-muted small"),
+                    html.Div("0", id="gpc-non-op-input", className="text-light"),
                 ], xs=6, md="auto"),
             ], className="mb-3 g-3"),
             html.Div(id="gpc-bridge-container", style={"overflowX": "auto"}),
@@ -554,16 +502,11 @@ def render_body(metric_col_values, basis_mode, exclude_map, session_data, source
     Input({"type": "gpc-selected-high", "metric": ALL}, "value"),
     Input({"type": "gpc-selected-low", "metric": ALL}, "value"),
     Input({"type": "gpc-weight", "index": ALL}, "value"),
-    Input("gpc-dloc-pct", "value"),
-    Input("gpc-control-premium-pct", "value"),
-    Input("gpc-nwc-input", "value"),
-    Input("gpc-non-op-input", "value"),
     Input("session-store", "data"),
     Input("source-results-store", "data"),
 )
 def render_subject_weighting_bridge(metric_col_values, basis_mode, selected_highs, selected_lows,
                                      weight_values_live,
-                                     dloc_pct_str, cp_pct_str, nwc_str, non_op_str,
                                      session_data, source_results):
     inputs = dict_to_project_inputs(session_data or {})
     metric_col_values = metric_col_values or []
@@ -584,12 +527,6 @@ def render_subject_weighting_bridge(metric_col_values, basis_mode, selected_high
     if n_cols == 0:
         empty = dbc.Alert("Configure GPC multiples above first.", color="secondary")
         return empty, empty, empty
-
-    def _pct(s):
-        try:
-            return float(str(s).replace("%", "").strip()) / 100.0
-        except (TypeError, ValueError):
-            return 0.0
 
     def _num(s):
         if s is None:
@@ -776,7 +713,6 @@ def render_subject_weighting_bridge(metric_col_values, basis_mode, selected_high
         natural_level="minority",
         source_basis=source_basis,
         bi=bi,
-        equity_mode_includes_cash=False,
     )
 
     def _row(label, low, high):
@@ -819,10 +755,10 @@ def render_subject_weighting_bridge(metric_col_values, basis_mode, selected_high
 @callback(
     Output("gpc-num-multiples", "value"),
     Output("gpc-basis-toggle", "value"),
-    Output("gpc-dloc-pct", "value"),
-    Output("gpc-control-premium-pct", "value"),
-    Output("gpc-nwc-input", "value"),
-    Output("gpc-non-op-input", "value"),
+    Output("gpc-dloc-pct", "children"),
+    Output("gpc-control-premium-pct", "children"),
+    Output("gpc-nwc-input", "children"),
+    Output("gpc-non-op-input", "children"),
     Output("gpc-exclude-store", "data", allow_duplicate=True),
     Input("session-load-timestamp", "data"),
     Input("_pages_location", "pathname"),
@@ -870,10 +806,6 @@ def restore_gpc_static_state(_load_ts, pathname, session_data):
     Output("session-store", "data", allow_duplicate=True),
     Input("gpc-num-multiples", "value"),
     Input("gpc-basis-toggle", "value"),
-    Input("gpc-dloc-pct", "value"),
-    Input("gpc-control-premium-pct", "value"),
-    Input("gpc-nwc-input", "value"),
-    Input("gpc-non-op-input", "value"),
     Input({"type": "gpc-metric-col", "index": ALL}, "value"),
     Input({"type": "gpc-metric-col", "index": ALL}, "id"),
     Input({"type": "gpc-selected-high", "metric": ALL}, "value"),
@@ -884,11 +816,17 @@ def restore_gpc_static_state(_load_ts, pathname, session_data):
     State("session-store", "data"),
     prevent_initial_call=True,
 )
-def persist_gpc_state(num_multiples, basis_mode, dloc, control_premium, nwc, non_op,
+def persist_gpc_state(num_multiples, basis_mode,
                        metric_col_values, metric_col_ids, selected_highs, selected_lows,
                        weight_values, weight_ids, exclude_map, session_data):
     session_data = dict(session_data or {})
     prev = dict(session_data.get("gpc_page_state") or {})
+
+    # CP / DLOC / Non-Op are Dashboard-owned; NWC surplus is NWC-page-owned.
+    # These are mirrored into gpc_page_state only so the on-disk session
+    # stays desktop-compatible. Nothing reads them as authoritative.
+    dash_state = dashboard_state_from_session(session_data)
+    nwc_surplus = (session_data.get("nwc_page_state") or {}).get("surplus_deficit")
 
     triggered = ctx.triggered_id
     trigger_type = triggered.get("type") if isinstance(triggered, dict) else triggered
@@ -941,10 +879,14 @@ def persist_gpc_state(num_multiples, basis_mode, dloc, control_premium, nwc, non
     session_data["gpc_page_state"] = {
         "num_multiples": num_multiples if num_multiples is not None else prev.get("num_multiples", MAX_COLS_CAP),
         "basis_mode": current_basis,
-        "dloc": dloc if dloc is not None else prev.get("dloc", "0%"),
-        "control_premium": control_premium if control_premium is not None else prev.get("control_premium", "0%"),
-        "nwc": nwc if nwc is not None else prev.get("nwc", "0"),
-        "non_op": non_op if non_op is not None else prev.get("non_op", "0"),
+        "dloc": dash_state.get("dloc") or prev.get("dloc", "0%"),
+        "control_premium": dash_state.get("control_premium") or prev.get("control_premium", "0%"),
+        "nwc": f"{nwc_surplus:,.0f}" if nwc_surplus is not None else prev.get("nwc", "0"),
+        "non_op": (
+            str(dash_state.get("non_op"))
+            if dash_state.get("non_op") not in (None, "")
+            else prev.get("non_op", "0")
+        ),
         "basis_state": basis_state,
         "metric_cols": bucket.get("metric_cols", {}),
         "selected_high": bucket.get("selected_high", {}),

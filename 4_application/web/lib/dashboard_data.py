@@ -11,7 +11,7 @@ weighted_conclusion remains in chart_helper.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Optional
 
 from Canneberge.Calculations.chart_helper import weighted_conclusion
 from Canneberge.Calculations.value_bridge import (
@@ -29,13 +29,7 @@ from Canneberge.Calculations.dcf import (
     SENS_OFFSETS,
 )
 from Canneberge.Calculations.gpc_metrics import get_metric, dropdown_options
-from Canneberge.Calculations.gpc_multiples import compute_all_gpc_multiples, get_subject_cash
-from Canneberge.Calculations.wacc import (
-    BETA_TYPE_OPTIONS,
-    BETA_FREQUENCY_OPTIONS,
-    CAPITAL_STRUCTURE_OPTIONS,
-    CORPORATE_RATE_SERIES,
-)
+from Canneberge.Calculations.gpc_multiples import get_subject_cash
 from web.lib.session_io import dict_to_project_inputs
 from web.lib.subject_metrics import get_subject_debt, get_subject_metric_value
 from web.lib.wacc_data import get_wacc_results, wacc_state_from_session
@@ -45,7 +39,6 @@ from web.lib.gt_data import get_gt_results, gt_state_from_session, MAX_COLS as G
 
 
 GPC_MAX = 7
-GT_MAX = 3
 RECON_METHODS = ("DCF", "GPC", "GT", "GIPO", "NAV")
 STAT_OPTIONS = [
     "Maximum", "Third Quartile", "Average", "Median",
@@ -424,7 +417,6 @@ def get_dashboard_results(session_data: dict, source_results: dict) -> dict:
         natural_level="controlling",
         source_basis=dcf_source_basis,
         bi=bridge,
-        equity_mode_includes_cash=False,
     )
     gpc_bridge = run_bridge(
         gpc["fmv_low"],
@@ -432,7 +424,6 @@ def get_dashboard_results(session_data: dict, source_results: dict) -> dict:
         natural_level="minority",
         source_basis=gpc["source_basis"],
         bi=bridge,
-        equity_mode_includes_cash=False,
     )
     gt_bridge = run_bridge(
         gt["fmv_low"],
@@ -440,7 +431,6 @@ def get_dashboard_results(session_data: dict, source_results: dict) -> dict:
         natural_level="controlling",
         source_basis="BEV",
         bi=bridge,
-        equity_mode_includes_cash=False,
     )
 
     pairs = {
@@ -474,7 +464,6 @@ def get_dashboard_results(session_data: dict, source_results: dict) -> dict:
             natural_level="minority",
             source_basis=gpc["source_basis"],
             bi=bridge,
-            equity_mode_includes_cash=False,
         )
         football.append((
             f"GPC - {name}",
@@ -488,7 +477,6 @@ def get_dashboard_results(session_data: dict, source_results: dict) -> dict:
             natural_level="controlling",
             source_basis="BEV",
             bi=bridge,
-            equity_mode_includes_cash=False,
         )
         football.append((
             f"GT - {name}",

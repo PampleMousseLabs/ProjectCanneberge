@@ -2125,8 +2125,6 @@ class DashboardPage(QWidget):
         self.dloc_input = _value_line(70)
         self.dloc_input.setText("19.4%")
         self.dloc_input.editingFinished.connect(self._on_dloc_edited)
-        # Backward-compat alias: older code calls .setText()/.text() on this.
-        self.implied_dloc_label = self.dloc_input
         dloc_row.addWidget(self.dloc_input)
         dloc_row.addStretch(1)
         outer.addLayout(dloc_row)
@@ -2218,17 +2216,6 @@ class DashboardPage(QWidget):
         frame.setLayout(outer)
         frame.adjustSize()
         return frame
-
-    def _derive_dloc(self) -> Optional[float]:
-        """Effective DLOC given last-edit-wins between CP and DLOC."""
-        from Canneberge.Ui.shared_input_widgets import _parse_pct
-        cp = _parse_pct(self.control_premium_input.text())
-        dloc = _parse_pct(self.dloc_input.text())
-        if getattr(self, "_last_edited_discount", "cp") == "dloc" and dloc is not None:
-            return dloc
-        if cp is not None:
-            return cp_to_dloc(cp)
-        return dloc
 
     def bridge_values(self) -> dict:
         """Dashboard-owned bridge inputs, parsed. Consumed by GPC page."""

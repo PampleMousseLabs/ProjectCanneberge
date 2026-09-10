@@ -23,7 +23,7 @@ from Canneberge.Calculations.wacc import (
 from web.lib.dashboard_data import (
     GPC_MAX, GT_MAX, RECON_METHODS, STAT_OPTIONS, TV_MODELS, GT_METRICS,
     COST_ROWS, dashboard_state_from_session, get_dashboard_results,
-    dloc_from_cp, parse_weight, _basis_key, _gpc_bucket,
+    _basis_key, _gpc_bucket,
 )
 from web.lib.session_io import dict_to_project_inputs
 from web.lib.wacc_data import wacc_state_from_session
@@ -294,7 +294,6 @@ layout = dbc.Container([
                 html.Hr(style={"borderColor": "#4a5568", "margin": "6px 0"}),
                 _kv("Control Premium:", _inp("dash-cp", 80, "24.0%")),
                 _kv("DLOC:", _inp("dash-dloc-input", 80, "19.4%")),
-                html.Div(html.Span("-", id="dash-dloc"), style={"display": "none"}),
                 _kv("Level:", _select("dash-level", ["Controlling", "Minority"], "Controlling", 120)),
                 _kv("Non-Op Assets:", _inp("dash-non-op", 80, "0")),
                 _kv("Display:", _select("dash-display", ["BEV", "Equity", "$/Share"], "BEV", 110)),
@@ -625,51 +624,6 @@ def _calculated_discount_source(trigger_id, current_value, sync_state):
     return None
 
 
-def _same_pct_value(a, b) -> bool:
-    """Compare percent strings numerically so 19.4% and 19.40% match."""
-    from Canneberge.Calculations.dcf import parse_pct
-
-    av = parse_pct(a)
-    bv = parse_pct(b)
-
-    if av is None or bv is None:
-        return str(a or "").strip() == str(b or "").strip()
-
-    return abs(av - bv) < 1e-9
-
-
-def _calculated_discount_source(trigger_id, current_value, sync_state):
-    """
-    Returns "cp" or "dloc" when the triggering input change was the
-    programmatic counterpart update created by sync_cp_dloc().
-
-    Example:
-        User edits CP -> callback writes DLOC.
-        The DLOC Input fires, but source remains "cp"; do not mark DLOC
-        as the user's last edit.
-    """
-    if not isinstance(sync_state, dict):
-        return None
-
-    source = sync_state.get("source")
-
-    if (
-        trigger_id == "dash-dloc-input"
-        and source == "cp"
-        and _same_pct_value(current_value, sync_state.get("calculated_dloc"))
-    ):
-        return "cp"
-
-    if (
-        trigger_id == "dash-cp"
-        and source == "dloc"
-        and _same_pct_value(current_value, sync_state.get("calculated_cp"))
-    ):
-        return "dloc"
-
-    return None
-
-
 # ---------------------------------------------------------------------------
 # Outputs (labels + chart) — inputs are not outputs
 # ---------------------------------------------------------------------------
@@ -677,7 +631,6 @@ def _calculated_discount_source(trigger_id, current_value, sync_state):
 @callback(
     Output("dash-wacc-value", "children"),
     Output("dash-pretax-kd", "children"),
-    Output("dash-dloc", "children"),
     Output("dash-concluded", "children"),
     Output("dash-observed", "children"),
     Output("dash-observed-label", "children"),
@@ -704,7 +657,7 @@ def _calculated_discount_source(trigger_id, current_value, sync_state):
 )
 def render_dashboard_outputs(pathname, session_data, source_results, display, level, cp, dloc, non_op, discount_sync):
     if pathname not in ("/dashboard", "/dashboard/"):
-        return (no_update,) * 17
+        return (no_update,) * 16
     session_data = dict(session_data or {})
     dstate = dict(session_data.get("dashboard_page_state") or {})
 
@@ -767,7 +720,6 @@ def render_dashboard_outputs(pathname, session_data, source_results, display, le
     return (
         _fmt_pct(wacc.get("wacc")) if wacc.get("wacc") is not None else "-",
         _fmt_pct(wacc.get("pretax_kd")),
-        _fmt_pct(res["dloc"]),
         _fmt(res["concluded"], basis),
         _fmt(res["observed"], basis),
         obs_label,
