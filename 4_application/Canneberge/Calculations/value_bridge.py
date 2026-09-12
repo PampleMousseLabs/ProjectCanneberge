@@ -301,6 +301,18 @@ def run_bridge(
             else None,
         )
 
+        # A BEV-native method that took DLOC at the equity level reports a
+        # bev_minority endpoint. Without this line the chain stops at equity
+        # and the reported endpoint has no visible derivation.
+        if source_basis == "BEV" and dloc is not None:
+            lines.append((
+                "Plus: Debt + Preferred Stock + Minority Interest; "
+                "Less: Cash + NWC Surplus/(Deficit) + Non-Operating Assets "
+                "= BEV (minority, marketable)",
+                bev_minority[0],
+                bev_minority[1],
+            ))
+
     per_share_minority = (
         equity_minority[0] / shares
         if equity_minority[0] is not None and shares

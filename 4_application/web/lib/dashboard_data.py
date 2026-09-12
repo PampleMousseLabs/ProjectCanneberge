@@ -503,6 +503,7 @@ def get_dashboard_results(session_data: dict, source_results: dict) -> dict:
         "football": football,
         "stats": wacc.get("stats") or {},
         "is_fcfe": is_fcfe,
+        "inputs": dict_to_project_inputs(session_data),
         "method_meta": {
             "DCF": {"natural": "controlling", "source_basis": dcf_source_basis},
             "GPC": {"natural": "minority", "source_basis": gpc["source_basis"]},

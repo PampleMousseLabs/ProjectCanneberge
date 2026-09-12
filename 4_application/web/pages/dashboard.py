@@ -590,6 +590,24 @@ def _bridge_panel(res: dict):
     bridges = res.get("method_bridges", {}) or {}
     target = res.get("target_level", "controlling")
 
+    # Home Basis of Value governs the panel's output basis for every method.
+    # Never $/Share — dividing by share count mid-bridge is meaningless.
+    inputs = res.get("inputs")
+    home_basis = (
+        "Equity"
+        if getattr(inputs, "basis_of_value", "") == "Equity Value"
+        else "BEV"
+    )
+
+    # Home Basis of Value governs the panel's output basis. Never $/Share —
+    # dividing by share count mid-bridge is meaningless.
+    inputs = res.get("inputs")
+    home_basis = (
+        "Equity"
+        if getattr(inputs, "basis_of_value", "") == "Equity Value"
+        else "BEV"
+    )
+
     lbl = {"color": "#9fb3c8", "fontSize": "10px", "padding": "1px 4px",
            "display": "inline-block", "width": "160px", "whiteSpace": "nowrap"}
     val = {"color": "#dddddd", "fontSize": "10px", "padding": "1px 4px",
@@ -653,34 +671,57 @@ def _bridge_panel(res: dict):
             style=sub,
         ))
         body.append(html.Div([
-            html.Span("", style={**step_lbl, "display": "inline-block",
-                                 "width": "0px"}),
-            html.Span("High", style={**step_val, "fontWeight": "bold"}),
-            html.Span("Low", style={**step_val, "fontWeight": "bold"}),
-        ]))
+            html.Span("High", style={**step_val, "fontWeight": "bold",
+                                     "color": "#9fb3c8"}),
+            html.Span("Low", style={**step_val, "fontWeight": "bold",
+                                    "color": "#9fb3c8"}),
+        ], style={"textAlign": "right", "marginBottom": "2px",
+                  "paddingLeft": "4px", "borderLeft": "2px solid transparent"}))
+
+        # Endpoint basis follows Home's Basis of Value for every method, not
+        # the method's own native basis. GT is always BEV-native, but under an
+        # Equity mandate its Dashboard contribution is the equity figure.
+        key = f"{'equity' if home_basis == 'Equity' else 'bev'}_{target}"
+        target_pair = result.get(key, (None, None))
+
+        step_lbl_on = {**step_lbl, "color": "#ffffff", "fontWeight": "bold"}
+        step_val_on = {**step_val, "color": "#ffffff", "fontWeight": "bold"}
+
+        def _is_target(low, high):
+            """Row that matches the value Dashboard consumes."""
+            if target_pair == (None, None):
+                return False
+            for a, b in zip((low, high), target_pair):
+                if a is None or b is None:
+                    if a is not b:
+                        return False
+                elif abs(a - b) > 0.005:
+                    return False
+            return True
 
         for label, low, high in result.get("lines", []):
+            hit = _is_target(low, high)
             body.append(html.Div([
-                html.Div(label, style=step_lbl),
+                html.Div(label, style=step_lbl_on if hit else step_lbl),
                 html.Div([
-                    html.Span(money(high), style=step_val),
-                    html.Span(money(low), style=step_val),
+                    html.Span(money(high), style=step_val_on if hit else step_val),
+                    html.Span(money(low), style=step_val_on if hit else step_val),
                 ], style={"textAlign": "right"}),
-            ], style={"marginBottom": "2px"}))
+            ], style={"marginBottom": "2px",
+                      "borderLeft": "2px solid #e5c07b" if hit else "2px solid transparent",
+                      "paddingLeft": "4px"}))
 
-        key = f"{'equity' if source_basis == 'Equity' else 'bev'}_{target}"
-        pair = result.get(key, (None, None))
-        pretty = f"{'Equity' if source_basis == 'Equity' else 'BEV'}, {target}"
+        pair = target_pair
+        pretty = f"{home_basis}, {target}"
         body.append(html.Div([
             html.Div(f"→ Dashboard ({pretty})",
-                     style={**step_lbl, "fontWeight": "bold", "color": "#ffffff"}),
+                     style={**step_lbl, "color": "#e5c07b"}),
             html.Div([
-                html.Span(money(pair[1]), style={**step_val, "fontWeight": "bold",
-                                                 "color": "#ffffff"}),
-                html.Span(money(pair[0]), style={**step_val, "fontWeight": "bold",
-                                                 "color": "#ffffff"}),
+                html.Span(money(pair[1]), style={**step_val, "color": "#e5c07b"}),
+                html.Span(money(pair[0]), style={**step_val, "color": "#e5c07b"}),
             ], style={"textAlign": "right"}),
-        ], style={"marginBottom": "2px"}))
+        ], style={"marginTop": "2px", "marginBottom": "2px",
+                  "paddingLeft": "4px", "borderLeft": "2px solid transparent"}))
 
     return html.Div(body)
 
