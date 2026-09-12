@@ -119,15 +119,7 @@ layout = dbc.Container([
         ], className="p-2")
     ], color="secondary", outline=True, className="mb-3"),
 
-    # Bridge Card
-    dbc.Card([
-        dbc.CardHeader("Bridge", className="fw-bold text-light py-1 px-2"),
-        dbc.CardBody([
-            html.Div(id="gt-bridge-container", style={"overflowX": "auto"}),
-        ])
-    ], color="secondary", outline=True, className="mb-3"),
-
-    # Chart Modal
+   # Chart Modal
     dbc.Modal([
         dbc.ModalHeader(dbc.ModalTitle("Range of Selected Transaction Multiples")),
         dbc.ModalBody([
@@ -328,7 +320,6 @@ def render_body(metric_col_values, exclude_map, session_data, source_results):
 @callback(
     Output("gt-subject-container", "children"),
     Output("gt-weighting-container", "children"),
-    Output("gt-bridge-container", "children"),
     Input({"type": "gt-metric-col", "index": ALL}, "value"),
     Input({"type": "gt-selected-high", "col": ALL}, "value"),
     Input({"type": "gt-selected-low", "col": ALL}, "value"),
@@ -346,7 +337,7 @@ def render_subject_weighting_bridge(metric_col_values, selected_highs, selected_
 
     if n_cols == 0:
         empty = dbc.Alert("Configure GT multiples above first.", color="secondary")
-        return empty, empty, empty
+        return empty, empty
 
     state = gt_state_from_session(session_data)
     state["num_multiples"] = n_cols
@@ -418,33 +409,7 @@ def render_subject_weighting_bridge(metric_col_values, selected_highs, selected_
         className="table table-sm table-dark mb-0", style=TABLE_STYLE,
     )
 
-    # --- Bridge Card ---
-    def _row(label, low, high, is_pct=False):
-        fmt = _fmt_pct if is_pct else _fmt_currency
-        return html.Tr([
-            html.Td(label, style={"minWidth": f"{LEADING_W}px"}),
-            html.Td(fmt(high), style={"textAlign": "right", "minWidth": f"{COL_W['metric']}px", "fontWeight": "bold"}),
-            html.Td(fmt(low), style={"textAlign": "right", "minWidth": f"{COL_W['metric']}px", "fontWeight": "bold"}),
-        ])
-
-    bridge_rows = [
-        html.Tr([html.Th("", style={"minWidth": f"{LEADING_W}px"}),
-                 html.Th("High", style={"textAlign": "right"}), html.Th("Low", style={"textAlign": "right"})]),
-        _row("FMV BEV", fmv_low, fmv_high),
-        _row("Less: Total Debt", debt, debt),
-        _row("FMV of Equity (marketable, controlling)", eq_ctrl_low, eq_ctrl_high),
-        _row("Less: Discount for Lack of Control", dloc, dloc, is_pct=True),
-        _row("FMV of Equity (marketable, noncontrolling)", eq_nctrl_low, eq_nctrl_high),
-        _row("Plus: Total Debt", debt, debt),
-        _row("FMV of Business Enterprise (marketable, noncontrolling)", bev_nctrl_low, bev_nctrl_high),
-    ]
-
-    bridge_table = html.Table(
-        [html.Thead(bridge_rows[0]), html.Tbody(bridge_rows[1:])],
-        className="table table-sm table-dark mb-0", style={"width": "max-content", "minWidth": "100%"},
-    )
-
-    return subject_table, weighting_table, bridge_table
+    return subject_table, weighting_table
 
 
 # -------------------------------------------------------------

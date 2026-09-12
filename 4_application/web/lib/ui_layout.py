@@ -16,6 +16,8 @@ Home page editable GT table is intentionally NOT covered here yet.
 
 from typing import List, Optional
 
+from dash import html
+
 # ---------------------------------------------------------------------------
 # Color tokens (dark / Slate-adjacent defaults)
 # When web theming lands, swap this dict (or inject from theme_manager).
@@ -143,3 +145,6 @@ def grid_style_data_conditional(
         "paddingLeft": "12px",
     })
     return rules
+
+
+

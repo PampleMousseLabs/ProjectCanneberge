@@ -27,7 +27,7 @@ from web.lib.session_io import dict_to_project_inputs
 from web.lib.subject_metrics import get_subject_metric_value
 from Canneberge.Calculations.gpc_multiples import compute_all_gpc_multiples, get_subject_cash
 from Canneberge.Calculations.gpc_metrics import dropdown_options, get_metric, CUSTOM_MULTIPLE_LABEL
-from Canneberge.Calculations.value_bridge import BridgeInputs, run_bridge
+
 from Canneberge.Calculations.dcf import parse_number
 from web.lib.dashboard_data import parse_weight, dashboard_state_from_session
 from web.lib.subject_metrics import get_subject_debt
@@ -247,25 +247,6 @@ layout = dbc.Container([
                 html.Div(id="gpc-weighting-container"),
             ], style={"overflowX": "auto"})
         ], className="p-2")
-    ], color="secondary", outline=True, className="mb-3"),
-
-    dbc.Card([
-        dbc.CardHeader("Bridge to Fair Value of Equity", className="fw-bold text-light"),
-        dbc.CardBody([
-            dbc.Row([
-                dbc.Col([
-                    dbc.Label("NWC Surplus (Deficit) — from NWC page",
-                              className="text-muted small"),
-                    html.Div("0", id="gpc-nwc-input", className="text-light"),
-                ], xs=6, md="auto"),
-                dbc.Col([
-                    dbc.Label("Non-Operating Assets, Net — from Dashboard",
-                              className="text-muted small"),
-                    html.Div("0", id="gpc-non-op-input", className="text-light"),
-                ], xs=6, md="auto"),
-            ], className="mb-3 g-3"),
-            html.Div(id="gpc-bridge-container", style={"overflowX": "auto"}),
-        ])
     ], color="secondary", outline=True, className="mb-3"),
 
     # memory: source of truth is session-store["gpc_page_state"]["exclude_map"]
@@ -496,7 +477,6 @@ def render_body(metric_col_values, basis_mode, exclude_map, session_data, source
 @callback(
     Output("gpc-subject-container", "children"),
     Output("gpc-weighting-container", "children"),
-    Output("gpc-bridge-container", "children"),
     Input({"type": "gpc-metric-col", "index": ALL}, "value"),
     Input("gpc-basis-toggle", "value"),
     Input({"type": "gpc-selected-high", "metric": ALL}, "value"),
@@ -526,7 +506,7 @@ def render_subject_weighting_bridge(metric_col_values, basis_mode, selected_high
 
     if n_cols == 0:
         empty = dbc.Alert("Configure GPC multiples above first.", color="secondary")
-        return empty, empty, empty
+        return empty, empty
 
     def _num(s):
         if s is None:
@@ -670,80 +650,7 @@ def render_subject_weighting_bridge(metric_col_values, basis_mode, selected_high
         className="table table-sm table-dark mb-0", style=TABLE_STYLE,
     )
 
-    # --- Bridge — shared value_bridge.py engine ---
-    dash_state = dashboard_state_from_session(session_data or {})
-
-    control_premium = parse_weight(dash_state.get("control_premium"))
-    dloc = parse_weight(dash_state.get("dloc"))
-    non_op = parse_number(dash_state.get("non_op")) or 0.0
-
-    _nwc_state = (session_data or {}).get("nwc_page_state") or {}
-    _nwc_cached = _nwc_state.get("surplus_deficit")
-    nwc = _nwc_cached if _nwc_cached is not None else 0.0
-
-    if inputs.company_status and inputs.company_status.strip().lower() == "publicly traded":
-        sa = (source_results or {}).get("stockanalysis", {}) if source_results else {}
-        bs_rows = sa.get("BS", []) if isinstance(sa, dict) else []
-        cash = get_subject_cash(bs_rows, inputs.subject_ticker)
-    else:
-        pf = (session_data or {}).get("private_bs_data") or {}
-        cash = pf.get("cash", {}).get("TTM") if isinstance(pf, dict) else None
-
-    debt = get_subject_debt(session_data or {}, source_results or {})
-    pref = get_subject_metric_value(session_data or {}, source_results or {}, "preferred_stock", "TTM")
-    nci = get_subject_metric_value(session_data or {}, source_results or {}, "minority_interest", "TTM")
-
-    bi = BridgeInputs(
-        cash=cash,
-        nwc_surplus=nwc,
-        non_operating=non_op,
-        debt=debt,
-        preferred_stock=pref,
-        minority_interest=nci,
-        control_premium=control_premium,
-        dloc=dloc,
-        shares_outstanding=None,
-        share_price=None,
-    )
-
-    source_basis = "Equity" if basis_mode == "EQUITY" else "BEV"
-    bridge_result = run_bridge(
-        fmv_low,
-        fmv_high,
-        natural_level="minority",
-        source_basis=source_basis,
-        bi=bi,
-    )
-
-    def _row(label, low, high):
-        return html.Tr([
-            html.Td(label, style={"minWidth": f"{LEADING_W}px", "whiteSpace": "normal"}),
-            html.Td(f"{high:,.0f}" if high is not None else "NA",
-                    style={"textAlign": "right", "minWidth": f"{COL_W['metric']}px"}),
-            html.Td(f"{low:,.0f}" if low is not None else "NA",
-                    style={"textAlign": "right", "minWidth": f"{COL_W['metric']}px"}),
-        ])
-
-    bridge_rows = [
-        html.Tr([html.Th("", style={"minWidth": f"{LEADING_W}px"}),
-                 html.Th("High", style={"textAlign": "right"}), html.Th("Low", style={"textAlign": "right"})]),
-    ]
-    for lbl, lo, hi in bridge_result.get("lines", []):
-        bridge_rows.append(_row(lbl, lo, hi))
-
-    bev_ctrl_lo, bev_ctrl_hi = bridge_result.get("bev_controlling", (None, None))
-    eq_ctrl_lo, eq_ctrl_hi = bridge_result.get("equity_controlling", (None, None))
-    if source_basis == "BEV":
-        bridge_rows.append(_row("BEV (controlling, marketable) --> send to Dashboard", bev_ctrl_lo, bev_ctrl_hi))
-    else:
-        bridge_rows.append(_row("Equity Value (controlling, marketable) --> send to Dashboard", eq_ctrl_lo, eq_ctrl_hi))
-
-    bridge_table = html.Table(
-        [html.Thead(bridge_rows[0]), html.Tbody(bridge_rows[1:])],
-        className="table table-sm table-dark mb-0", style={"width": "max-content", "minWidth": "100%"},
-    )
-
-    return subject_table, weighting_table, bridge_table
+    return subject_table, weighting_table
 
 # -------------------------------------------------------------
 # CALLBACK — restore static controls when:
@@ -757,8 +664,6 @@ def render_subject_weighting_bridge(metric_col_values, basis_mode, selected_high
     Output("gpc-basis-toggle", "value"),
     Output("gpc-dloc-pct", "children"),
     Output("gpc-control-premium-pct", "children"),
-    Output("gpc-nwc-input", "children"),
-    Output("gpc-non-op-input", "children"),
     Output("gpc-exclude-store", "data", allow_duplicate=True),
     Input("session-load-timestamp", "data"),
     Input("_pages_location", "pathname"),
@@ -768,11 +673,11 @@ def render_subject_weighting_bridge(metric_col_values, basis_mode, selected_high
 def restore_gpc_static_state(_load_ts, pathname, session_data):
     # Only hydrate when landing on this page (or global session load while here)
     if pathname not in ("/gpc", "/gpc/"):
-        return (no_update,) * 7
+        return (no_update,) * 5
 
     gpc_state = (session_data or {}).get("gpc_page_state") or {}
     if not gpc_state:
-        return (no_update,) * 7
+        return (no_update,) * 5
 
     dash_state = dashboard_state_from_session(session_data or {})
     nwc_state = (session_data or {}).get("nwc_page_state") or {}
@@ -787,12 +692,6 @@ def restore_gpc_static_state(_load_ts, pathname, session_data):
         ),
         dash_state.get("dloc", gpc_state.get("dloc", "0%")),
         dash_state.get("control_premium", gpc_state.get("control_premium", "0%")),
-        (
-            f"{nwc_surplus:,.0f}"
-            if nwc_surplus is not None
-            else gpc_state.get("nwc", "0")
-        ),
-        dash_state.get("non_op", gpc_state.get("non_op", "0")),
         gpc_state.get("exclude_map") or {},
     )
 

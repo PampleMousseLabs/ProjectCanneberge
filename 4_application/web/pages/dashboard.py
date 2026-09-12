@@ -125,19 +125,34 @@ def _football_figure(rows, observed, concluded, basis: str) -> Figure:
         fig.add_vline(x=observed, line=dict(color="#e06c75", width=2, dash="dash"))
     if concluded is not None:
         fig.add_vline(x=concluded, line=dict(color="#e5c07b", width=2.4))
+
+    # Outside labels render past the bar end. Pad the data range so the
+    # longest "low  high" string has room instead of being clipped.
+    span_vals = lows + highs
+    if observed is not None:
+        span_vals.append(observed)
+    if concluded is not None:
+        span_vals.append(concluded)
+    x_min, x_max = min(span_vals), max(span_vals)
+    span = (x_max - x_min) or (abs(x_max) or 1.0)
+    x_range = [x_min - span * 0.08, x_max + span * 0.28]
+
     fig.update_layout(
         paper_bgcolor="#1e1e1e", plot_bgcolor="#1e1e1e",
         font=dict(color="#9fb3c8", size=11),
-        height=max(340, 28 * len(plotted) + 80),
-        margin=dict(l=180, r=80, t=20, b=40),
+        height=max(340, 28 * len(plotted) + 110),
+        margin=dict(l=180, r=40, t=40, b=40),
         xaxis=dict(gridcolor="#3a4553", tickprefix="$",
-                   tickformat=".2f" if basis == "$/Share" else ",.0f"),
-        yaxis=dict(gridcolor="#3a4553"),
+                   tickformat=".2f" if basis == "$/Share" else ",.0f",
+                   range=x_range),
+        yaxis=dict(gridcolor="#3a4553", automargin=True),
         showlegend=False,
+        uniformtext=dict(mode="show", minsize=9),
         annotations=[
-            dict(text=marker_title, x=1, y=0, xref="paper", yref="paper",
+            dict(text=marker_title, x=observed, y=1.02,
+                 xref="x", yref="paper",
                  showarrow=False, font=dict(color="#e06c75", size=10),
-                 xanchor="right", yanchor="bottom"),
+                 xanchor="center", yanchor="bottom"),
         ] if observed is not None else [],
     )
     return fig
@@ -196,141 +211,128 @@ def _gt_rows():
 layout = dbc.Container([
     dcc.Store(id="dash-discount-sync-store", data={}, storage_type="memory"),
     dbc.Row([
-        dbc.Col(dbc.Card([
-            html.Div("Income Approach", style=_HDR),
-            dbc.CardBody([
-                html.A("WACC", id="dash-wacc-link", href="#", className="text-warning small"),
-                _kv("Debt/TIC", html.Div([
-                    _inp("dash-debt-tic", 80),
-                    _select("dash-debt-tic-stat", STAT_OPTIONS, "Median", 120),
-                ], className="d-flex")),
-                _kv("Beta", html.Div([
-                    _inp("dash-beta", 80),
-                    _select("dash-beta-stat", STAT_OPTIONS, "Median", 120),
-                ], className="d-flex")),
-                _kv("ERP", _inp("dash-erp", 80), "Per Kroll"),
-                _kv("Size Premium", _inp("dash-size-premium", 80)),
-                _kv("CSRP", _inp("dash-csrp", 80), "Projection Risk"),
-                _kv("Pre-Tax Cost of Debt", html.Div([
-                    html.Span("-", id="dash-pretax-kd", style={**_LBL, "width": "80px",
-                                                               "display": "inline-block",
-                                                               "textAlign": "right"}),
-                    _select("dash-pretax-series", list(CORPORATE_RATE_SERIES.keys()),
-                            list(CORPORATE_RATE_SERIES.keys())[0], 210),
-                ], className="d-flex align-items-center")),
-                _kv("WACC", html.Span("-", id="dash-wacc-value", style=_LBL_B)),
-                html.Div("DCF Options", style={**_SUB, "margin": "8px 0 4px"}),
-                _kv("Terminal Year", _select("dash-tv-model", TV_MODELS, "Gordon Growth", 180)),
-                html.Div(id="dash-tv-ltgr-row", children=_kv("Long Term Growth Rate", _inp("dash-ltgr", 80, "3.0%"))),
-                html.Div(id="dash-tv-mult-row", children=_kv("Selected Multiple", _inp("dash-tv-multiple", 80, "10.00x")), style={"display": "none"}),
-                html.Div(id="dash-tv-years-row", children=_kv("Number of Years", _inp("dash-tv-years", 80, "5")), style={"display": "none"}),
-                html.Div(id="dash-tv-stgr-row", children=_kv("Short Term Growth Rate", _inp("dash-tv-stgr", 80, "20.0%")), style={"display": "none"}),
-                html.Div("CapEx Options", style={**_SUB, "margin": "8px 0 4px"}),
-                _kv("Dep. as % of CapEx", _inp("dash-dep-pct", 80, "100.0%")),
-            ], className="p-2"),
-        ], color="secondary", outline=True), lg=4, className="mb-2"),
+        dbc.Col([
+            dbc.Row([
+                dbc.Col(dbc.Card([
+                    html.Div("Income Approach", style=_HDR),
+                    dbc.CardBody([
+                        html.A("WACC", id="dash-wacc-link", href="#", className="text-warning small"),
+                        _kv("Debt/TIC", html.Div([
+                            _inp("dash-debt-tic", 80),
+                            _select("dash-debt-tic-stat", STAT_OPTIONS, "Median", 120),
+                        ], className="d-flex")),
+                        _kv("Beta", html.Div([
+                            _inp("dash-beta", 80),
+                            _select("dash-beta-stat", STAT_OPTIONS, "Median", 120),
+                        ], className="d-flex")),
+                        _kv("ERP", _inp("dash-erp", 80), "Per Kroll"),
+                        _kv("Size Premium", _inp("dash-size-premium", 80)),
+                        _kv("CSRP", _inp("dash-csrp", 80), "Projection Risk"),
+                        _kv("Pre-Tax Cost of Debt", html.Div([
+                            html.Span("-", id="dash-pretax-kd", style={**_LBL, "width": "80px",
+                                                                       "display": "inline-block",
+                                                                       "textAlign": "right"}),
+                            _select("dash-pretax-series", list(CORPORATE_RATE_SERIES.keys()),
+                                    list(CORPORATE_RATE_SERIES.keys())[0], 210),
+                        ], className="d-flex align-items-center")),
+                        _kv("WACC", html.Span("-", id="dash-wacc-value", style=_LBL_B)),
+                        html.Div("DCF Options", style={**_SUB, "margin": "8px 0 4px"}),
+                        _kv("Terminal Year", _select("dash-tv-model", TV_MODELS, "Gordon Growth", 180)),
+                        html.Div(id="dash-tv-ltgr-row", children=_kv("Long Term Growth Rate", _inp("dash-ltgr", 80, "3.0%"))),
+                        html.Div(id="dash-tv-mult-row", children=_kv("Selected Multiple", _inp("dash-tv-multiple", 80, "10.00x")), style={"display": "none"}),
+                        html.Div(id="dash-tv-years-row", children=_kv("Number of Years", _inp("dash-tv-years", 80, "5")), style={"display": "none"}),
+                        html.Div(id="dash-tv-stgr-row", children=_kv("Short Term Growth Rate", _inp("dash-tv-stgr", 80, "20.0%")), style={"display": "none"}),
+                        html.Div("CapEx Options", style={**_SUB, "margin": "8px 0 4px"}),
+                        _kv("Dep. as % of CapEx", _inp("dash-dep-pct", 80, "100.0%")),
+                    ], className="p-2"),
+                ], color="secondary", outline=True), lg=5, className="mb-2"),
+
+                dbc.Col(dbc.Card([
+                    html.Div("Market Approach", style=_HDR),
+                    dbc.CardBody([
+                        html.Div([
+                            html.A("GPC", id="dash-gpc-chart-link", href="#", className="text-warning small me-3"),
+                            html.Span("How Many Multiples:", className="text-muted small me-1"),
+                            dbc.Input(id="dash-gpc-n", type="number", min=1, max=GPC_MAX, step=1,
+                                      value=GPC_MAX, debounce=True, size="sm",
+                                      style={**_INP, "width": "58px", "textAlign": "center"}),
+                        ], className="d-flex align-items-center mb-2"),
+                        html.Div(_gpc_rows()),
+                        html.Hr(style={"borderColor": "#4a5568", "margin": "8px 0"}),
+                        html.Div([
+                            html.A("GT", id="dash-gt-chart-link", href="#", className="text-warning small me-3"),
+                            html.Span("How Many Multiples:", className="text-muted small me-1"),
+                            dbc.Input(id="dash-gt-n", type="number", min=1, max=GT_MAX, step=1,
+                                      value=GT_MAX, debounce=True, size="sm",
+                                      style={**_INP, "width": "58px", "textAlign": "center"}),
+                        ], className="d-flex align-items-center mb-2"),
+                        html.Div(_gt_rows()),
+                    ], className="p-2"),
+                ], color="secondary", outline=True), lg=7, className="mb-2"),
+            ], className="g-2"),
+
+            dbc.Row([
+                dbc.Col(dbc.Card([
+                    html.Div("Reconciliation of Values", style=_HDR),
+                    dbc.CardBody([
+                        html.Div([
+                            html.Span("", style={"width": "48px", "display": "inline-block"}),
+                            html.Span("Low", style={**_LBL, "width": "90px", "display": "inline-block",
+                                                    "textAlign": "right"}),
+                            html.Span("High", style={**_LBL, "width": "90px", "display": "inline-block",
+                                                     "textAlign": "right"}),
+                            html.Span("Weighting", style={**_LBL, "width": "90px", "display": "inline-block",
+                                                          "textAlign": "right"}),
+                        ], className="d-flex mb-1"),
+                        *[
+                            html.Div([
+                                html.Span(m, style={**_LBL, "width": "48px", "display": "inline-block"}),
+                                html.Span("-", id=f"dash-recon-{m.lower()}-low",
+                                          style={**_LBL, "width": "90px", "display": "inline-block",
+                                                 "textAlign": "right"}),
+                                html.Span("-", id=f"dash-recon-{m.lower()}-high",
+                                          style={**_LBL, "width": "90px", "display": "inline-block",
+                                                 "textAlign": "right"}),
+                                _inp({"type": "dash-recon-wt", "m": m}, 90),
+                            ], className="d-flex align-items-center mb-1")
+                            for m in RECON_METHODS
+                        ],
+                        html.Hr(style={"borderColor": "#4a5568", "margin": "6px 0"}),
+                        _kv("Control Premium:", _inp("dash-cp", 80, "24.0%")),
+                        _kv("DLOC:", _inp("dash-dloc-input", 80, "19.4%")),
+                        _kv("Level:", _select("dash-level", ["Controlling", "Minority"], "Controlling", 120)),
+                        _kv("Non-Op Assets:", _inp("dash-non-op", 80, "0")),
+                        _kv("Display:", _select("dash-display", ["BEV", "Equity", "$/Share"], "BEV", 110)),
+                        _kv("Concluded FV:", html.Span("-", id="dash-concluded", style=_LBL_B)),
+                        html.Div([
+                            html.Span("Observed EV:", id="dash-observed-label",
+                                      style={**_LBL, "width": "150px", "display": "inline-block"}),
+                            html.Span("-", id="dash-observed", style=_LBL),
+                        ], className="d-flex"),
+                    ], className="p-2"),
+                ], color="secondary", outline=True), lg=5, className="mb-2"),
+
+                dbc.Col(dbc.Card([
+                    html.Div("Football Field Chart", style=_HDR),
+                    dbc.CardBody([
+                        dcc.Graph(id="dash-football", config={"displayModeBar": False},
+                                  style={"height": "520px"}),
+                    ], className="p-1"),
+                ], color="secondary", outline=True), lg=7, className="mb-2"),
+
+                html.Div([
+                    dbc.Input(id="dash-cost-count", type="number", value=5),
+                    *[_inp({"type": "dash-cost", "k": name}, 85) for name in COST_ROWS],
+                ], style={"display": "none"}),
+            ], className="g-2"),
+        ], lg=9),
 
         dbc.Col(dbc.Card([
-            html.Div("Market Approach", style=_HDR),
+            html.Div("Value Bridge", style=_HDR),
             dbc.CardBody([
-                html.Div([
-                    html.A("GPC", id="dash-gpc-chart-link", href="#", className="text-warning small me-3"),
-                    html.Span("How Many Multiples:", className="text-muted small me-1"),
-                    dbc.Input(id="dash-gpc-n", type="number", min=1, max=GPC_MAX, step=1,
-                              value=GPC_MAX, debounce=True, size="sm",
-                              style={**_INP, "width": "58px", "textAlign": "center"}),
-                ], className="d-flex align-items-center mb-2"),
-                html.Div(_gpc_rows()),
-                html.Hr(style={"borderColor": "#4a5568", "margin": "8px 0"}),
-                html.Div([
-                    html.A("GT", id="dash-gt-chart-link", href="#", className="text-warning small me-3"),
-                    html.Span("How Many Multiples:", className="text-muted small me-1"),
-                    dbc.Input(id="dash-gt-n", type="number", min=1, max=GT_MAX, step=1,
-                              value=GT_MAX, debounce=True, size="sm",
-                              style={**_INP, "width": "58px", "textAlign": "center"}),
-                ], className="d-flex align-items-center mb-2"),
-                html.Div(_gt_rows()),
-            ], className="p-2"),
-        ], color="secondary", outline=True), lg=5, className="mb-2"),
-
-        dbc.Col(dbc.Card([
-            html.Div("Future Space", style=_HDR),
-            dbc.CardBody([
-                html.Div("Top-right probe", className="text-muted small"),
-                html.Div("Use this area later for:", className="text-muted small"),
-                html.Li("dynamic charts", className="text-muted small"),
-                html.Li("helper lists", className="text-muted small"),
-                html.Li("summaries", className="text-muted small"),
-            ], className="p-2"),
-        ], color="secondary", outline=True), lg=3, className="mb-2"),
-    ], className="g-2"),
-
-    dbc.Row([
-        dbc.Col(dbc.Card([
-            html.Div("Reconciliation of Values", style=_HDR),
-            dbc.CardBody([
-                html.Div([
-                    html.Span("", style={"width": "48px", "display": "inline-block"}),
-                    html.Span("Low", style={**_LBL, "width": "90px", "display": "inline-block",
-                                            "textAlign": "right"}),
-                    html.Span("High", style={**_LBL, "width": "90px", "display": "inline-block",
-                                             "textAlign": "right"}),
-                    html.Span("Weighting", style={**_LBL, "width": "90px", "display": "inline-block",
-                                                  "textAlign": "right"}),
-                ], className="d-flex mb-1"),
-                *[
-                    html.Div([
-                        html.Span(m, style={**_LBL, "width": "48px", "display": "inline-block"}),
-                        html.Span("-", id=f"dash-recon-{m.lower()}-low",
-                                  style={**_LBL, "width": "90px", "display": "inline-block",
-                                         "textAlign": "right"}),
-                        html.Span("-", id=f"dash-recon-{m.lower()}-high",
-                                  style={**_LBL, "width": "90px", "display": "inline-block",
-                                         "textAlign": "right"}),
-                        _inp({"type": "dash-recon-wt", "m": m}, 90),
-                    ], className="d-flex align-items-center mb-1")
-                    for m in RECON_METHODS
-                ],
-                html.Hr(style={"borderColor": "#4a5568", "margin": "6px 0"}),
-                _kv("Control Premium:", _inp("dash-cp", 80, "24.0%")),
-                _kv("DLOC:", _inp("dash-dloc-input", 80, "19.4%")),
-                _kv("Level:", _select("dash-level", ["Controlling", "Minority"], "Controlling", 120)),
-                _kv("Non-Op Assets:", _inp("dash-non-op", 80, "0")),
-                _kv("Display:", _select("dash-display", ["BEV", "Equity", "$/Share"], "BEV", 110)),
-                _kv("Concluded FV:", html.Span("-", id="dash-concluded", style=_LBL_B)),
-                html.Div([
-                    html.Span("Observed EV:", id="dash-observed-label",
-                              style={**_LBL, "width": "150px", "display": "inline-block"}),
-                    html.Span("-", id="dash-observed", style=_LBL),
-                ], className="d-flex"),
-            ], className="p-2"),
-        ], color="secondary", outline=True), lg=3, className="mb-2"),
-
-        dbc.Col(dbc.Card([
-            html.Div("Cost Approach", style=_HDR),
-            dbc.CardBody([
-                html.Div("NAV Method", className="fw-bold text-light small mb-1"),
-                html.Div([
-                    html.Span("Asset Value - Liquidation Basis", className="text-light small me-2"),
-                    html.Span("Cost Count", className="text-muted small me-1"),
-                    dbc.Input(id="dash-cost-count", type="number", min=1, max=10, step=1,
-                              value=5, debounce=True, size="sm",
-                              style={**_INP, "width": "58px", "textAlign": "center"}),
-                ], className="d-flex align-items-center mb-2"),
-                *[
-                    _kv(name, _inp({"type": "dash-cost", "k": name}, 85))
-                    for name in COST_ROWS
-                ],
+                html.Div(id="dash-bridge-panel"),
             ], className="p-2"),
         ], color="secondary", outline=True), lg=3, className="mb-2"),
-
-        dbc.Col(dbc.Card([
-            html.Div("Football Field Chart", style=_HDR),
-            dbc.CardBody([
-                dcc.Graph(id="dash-football", config={"displayModeBar": False},
-                          style={"height": "380px"}),
-            ], className="p-1"),
-        ], color="secondary", outline=True), lg=6, className="mb-2"),
     ], className="g-2"),
 
     dbc.Modal([
@@ -579,6 +581,110 @@ def apply_wacc_stat(debt_stat, beta_stat, session_data, source_results):
     return debt_out, beta_out
 
 
+def _bridge_panel(res: dict):
+    """Value Bridge panel. Renders run_bridge()['lines'] verbatim per method
+    so the displayed chain is literally what the engine computed. Always in
+    dollars on the Home Basis of Value; never $/Share."""
+    bi = res["bridge"]
+    meta = res.get("method_meta", {}) or {}
+    bridges = res.get("method_bridges", {}) or {}
+    target = res.get("target_level", "controlling")
+
+    lbl = {"color": "#9fb3c8", "fontSize": "10px", "padding": "1px 4px",
+           "display": "inline-block", "width": "160px", "whiteSpace": "nowrap"}
+    val = {"color": "#dddddd", "fontSize": "10px", "padding": "1px 4px",
+           "display": "inline-block", "width": "80px", "textAlign": "right"}
+    src = {"color": "#6b7c8f", "fontSize": "9px", "padding": "1px 4px",
+           "display": "inline-block"}
+    step_lbl = {"color": "#c8d4e0", "fontSize": "10px", "padding": "1px 4px",
+                "display": "block", "whiteSpace": "normal"}
+    step_val = {"color": "#dddddd", "fontSize": "10px", "padding": "1px 4px",
+                "display": "inline-block", "width": "90px", "textAlign": "right"}
+    meth = {"color": "#e6e6e6", "fontSize": "11px", "fontWeight": "bold",
+            "padding": "4px 4px 2px 4px"}
+    sub = {"color": "#9fb3c8", "fontSize": "9px", "padding": "0 4px 3px 4px"}
+    rule = {"borderColor": "#4a5568", "margin": "6px 0"}
+
+    def money(v):
+        return "-" if v is None else f"{v:,.0f}"
+
+    def pct(v):
+        return "-" if v is None else f"{v * 100:.2f}%"
+
+    def input_row(label, value, source):
+        return html.Div([
+            html.Span(label, style=lbl),
+            html.Span(value, style=val),
+            html.Span(source, style=src),
+        ])
+
+    body = [
+        html.Div(f"Target Level: {target.capitalize()}",
+                 style={**meth, "paddingTop": "0"}),
+        html.Hr(style=rule),
+        html.Div("Shared Inputs", style=meth),
+        input_row("Cash & Equivalents", money(bi.cash), "Subject BS TTM"),
+        input_row("Debt", money(bi.debt), "Subject BS TTM"),
+        input_row("Preferred Stock", money(bi.preferred_stock), "Subject BS TTM"),
+        input_row("Minority Interest", money(bi.minority_interest), "Subject BS TTM"),
+        input_row("NWC Surplus/(Deficit)", money(bi.nwc_surplus), "NWC page"),
+        input_row("Non-Operating Assets", money(bi.non_operating), "Dashboard"),
+        input_row("Control Premium", pct(bi.control_premium), "Dashboard"),
+        input_row("DLOC", pct(bi.dloc), "Dashboard"),
+        input_row("Shares Outstanding", money(bi.shares_outstanding), "SA Ratios"),
+    ]
+
+    for method in ("DCF", "GPC", "GT"):
+        result = bridges.get(method)
+        if not result:
+            continue
+
+        m = meta.get(method, {})
+        natural = m.get("natural", "?")
+        source_basis = m.get("source_basis", "?")
+        adjusted = "no adjustment" if natural == target else (
+            "DLOC applied" if target == "minority" else "Control Premium applied"
+        )
+
+        body.append(html.Hr(style=rule))
+        body.append(html.Div(method, style=meth))
+        body.append(html.Div(
+            f"native {source_basis}, {natural} · {natural} → {target}, {adjusted}",
+            style=sub,
+        ))
+        body.append(html.Div([
+            html.Span("", style={**step_lbl, "display": "inline-block",
+                                 "width": "0px"}),
+            html.Span("High", style={**step_val, "fontWeight": "bold"}),
+            html.Span("Low", style={**step_val, "fontWeight": "bold"}),
+        ]))
+
+        for label, low, high in result.get("lines", []):
+            body.append(html.Div([
+                html.Div(label, style=step_lbl),
+                html.Div([
+                    html.Span(money(high), style=step_val),
+                    html.Span(money(low), style=step_val),
+                ], style={"textAlign": "right"}),
+            ], style={"marginBottom": "2px"}))
+
+        key = f"{'equity' if source_basis == 'Equity' else 'bev'}_{target}"
+        pair = result.get(key, (None, None))
+        pretty = f"{'Equity' if source_basis == 'Equity' else 'BEV'}, {target}"
+        body.append(html.Div([
+            html.Div(f"→ Dashboard ({pretty})",
+                     style={**step_lbl, "fontWeight": "bold", "color": "#ffffff"}),
+            html.Div([
+                html.Span(money(pair[1]), style={**step_val, "fontWeight": "bold",
+                                                 "color": "#ffffff"}),
+                html.Span(money(pair[0]), style={**step_val, "fontWeight": "bold",
+                                                 "color": "#ffffff"}),
+            ], style={"textAlign": "right"}),
+        ], style={"marginBottom": "2px"}))
+
+    return html.Div(body)
+
+
 def _same_pct_value(a, b) -> bool:
     """Compare percent strings numerically so 19.4% and 19.40% match."""
     from Canneberge.Calculations.dcf import parse_pct
@@ -645,6 +751,7 @@ def _calculated_discount_source(trigger_id, current_value, sync_state):
     Output("dash-recon-nav-low", "children"),
     Output("dash-recon-nav-high", "children"),
     Output("dash-football", "figure"),
+    Output("dash-bridge-panel", "children"),
     Input("_pages_location", "pathname"),
     Input("session-store", "data"),
     Input("source-results-store", "data"),
@@ -698,8 +805,8 @@ def render_dashboard_outputs(pathname, session_data, source_results, display, le
         empty.update_layout(paper_bgcolor="#1e1e1e", plot_bgcolor="#1e1e1e",
                             xaxis=dict(visible=False), yaxis=dict(visible=False), height=360)
         msg = f"Dashboard error: {exc}"
-        return (msg, "-", "-", "-", "-", "Observed:",
-                "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", empty)
+        return (msg, "-", "-", "-", "Observed:",
+                "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", empty, "")
 
     basis = res["basis"]
     wacc = res["wacc"]
@@ -725,6 +832,7 @@ def render_dashboard_outputs(pathname, session_data, source_results, display, le
         obs_label,
         dcf_l, dcf_h, gpc_l, gpc_h, gt_l, gt_h, "-", "-", "-", "-",
         fig,
+        _bridge_panel(res),
     )
 
 
