@@ -62,7 +62,7 @@ app.index_string = '''
 navbar = dbc.Navbar(
     dbc.Container(
         [
-            dbc.NavbarBrand("🍒 Canneberge Valuations", href="/"),
+            dbc.NavbarBrand("🔴 Canneberge", href="/"),
             dbc.Nav(
                 [
                     dbc.NavItem(dbc.NavLink("Home", href="/", active="exact")),
@@ -393,4 +393,4 @@ def on_new_session(n_clicks):
 
 if __name__ == "__main__":
     print("🚀 Canneberge Web Server starting on http://0.0.0.0:8050")
-    app.run(host="0.0.0.0", port=8050, debug=True)
+    app.run(host="127.0.0.1", port=8050, debug=True)
