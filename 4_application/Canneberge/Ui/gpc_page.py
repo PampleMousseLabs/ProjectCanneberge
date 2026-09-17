@@ -316,7 +316,6 @@ class GPCPage(QWidget):
         self._build_selected_multiples_section()
         self._build_subject_section()
         self._build_weighting_section()
-        self._build_bridge_section()
 
         self.grid.setRowStretch(self._current_row + 50, 1)
 
@@ -1112,85 +1111,6 @@ class GPCPage(QWidget):
 
         self.fmv_low_label.setText(_fmt_currency(fmv_low) if fmv_low is not None else "NA")
         self.fmv_high_label.setText(_fmt_currency(fmv_high) if fmv_high is not None else "NA")
-
-        # Bridge Section — shared value_bridge engine. GPC is minority-native.
-        self._lock_dashboard_owned_inputs()
-
-        dash_vals = self._get_dashboard_bridge_values() or {}
-        control_premium = dash_vals.get("control_premium")
-        dloc = dash_vals.get("dloc")
-        non_op = dash_vals.get("non_op") or 0.0
-
-        nwc = self._get_nwc_surplus()
-
-        if inputs.is_private:
-            pf = self._get_private_financials_callback()
-            cash = pf.get_bs("cash", "TTM") if pf else None
-        elif inputs.is_publicly_traded:
-            cash = get_subject_cash(bs_rows, inputs.subject_ticker)
-        else:
-            cash = None
-
-        try:
-            debt = self._get_subject_debt()
-        except Exception:
-            debt = None
-        preferred = self._get_subject_metric_value("preferred_stock", "TTM")
-        nci = self._get_subject_metric_value("minority_interest", "TTM")
-
-        bi = BridgeInputs(
-            cash=cash,
-            nwc_surplus=nwc,
-            non_operating=non_op,
-            debt=debt,
-            preferred_stock=preferred,
-            minority_interest=nci,
-            control_premium=control_premium,
-            dloc=dloc,
-            shares_outstanding=None,
-            share_price=None,
-        )
-        source_basis = "Equity" if is_equity_mode else "BEV"
-        result = run_bridge(
-            fmv_low, fmv_high,
-            natural_level="minority",
-            source_basis=source_basis,
-            bi=bi,
-        )
-        self._last_bridge_result = result
-
-        # Mirror Dashboard-owned values into the (read-only) compat widgets.
-        for widget, text in (
-            (getattr(self, "control_premium_input", None),
-             f"{control_premium * 100:.1f}%" if control_premium is not None else ""),
-            (getattr(self, "dloc_input", None),
-             f"{dloc * 100:.1f}%" if dloc is not None else ""),
-            (getattr(self, "nwc_input", None),
-             _fmt_currency(nwc) if nwc is not None else ""),
-            (getattr(self, "non_op_assets_input", None), _fmt_currency(non_op)),
-        ):
-            if widget is not None:
-                widget.blockSignals(True)
-                widget.setText(text)
-                widget.blockSignals(False)
-
-        bridge_rows = []
-        if not is_equity_mode:
-            bridge_rows.append(("Debt + Preferred Stock + Minority Interest (subject TTM)",
-                                (debt or 0.0) + (preferred or 0.0) + (nci or 0.0),
-                                (debt or 0.0) + (preferred or 0.0) + (nci or 0.0), False))
-            bridge_rows.append(("Cash & Cash Equivalents (subject TTM)", cash, cash, False))
-        bridge_rows.append(("NWC Surplus/(Deficit) (from NWC page)", nwc, nwc, False))
-        bridge_rows.append(("Non-Operating Assets (from Dashboard)", non_op, non_op, False))
-        for text, lo, hi in result.get("lines", []):
-            bridge_rows.append((text, lo, hi, False))
-        if is_equity_mode:
-            lo, hi = result["equity_controlling"]
-            bridge_rows.append(("Equity Value (controlling, marketable) → Dashboard", lo, hi, True))
-        else:
-            lo, hi = result["bev_controlling"]
-            bridge_rows.append(("BEV (controlling, marketable) → Dashboard", lo, hi, True))
-        self._render_bridge_rows(bridge_rows)
 
         chart_labels = [self.metric_combos[i].currentText() for i in range(n_cols)]
         if self._chart_dialog is not None:

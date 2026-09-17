@@ -459,56 +459,44 @@ class DashboardPage(QWidget):
         root.setSpacing(10)
 
         # --------------------------------------------------------------
-        # Top row:
-        # Income Approach | Market Approach | Future Space
+        # Main row:
+        #   Left stack:  Income / Market over Reconciliation / Football
+        #   Right side: Value Bridge spanning the full stack height
         # --------------------------------------------------------------
+        main_row = QHBoxLayout()
+        main_row.setSpacing(10)
+        main_row.setContentsMargins(0, 0, 0, 0)
+
+        left_stack = QVBoxLayout()
+        left_stack.setSpacing(10)
+        left_stack.setContentsMargins(0, 0, 0, 0)
+
         top_row = QHBoxLayout()
         top_row.setSpacing(10)
         top_row.setContentsMargins(0, 0, 0, 0)
-
         top_row.addWidget(
             self._build_income_panel(),
             0,
             alignment=Qt.AlignmentFlag.AlignTop,
         )
-
         top_row.addWidget(
             self._build_market_panel(),
             0,
             alignment=Qt.AlignmentFlag.AlignTop,
         )
-
-        top_row.addWidget(
-            self._build_top_right_probe(),
-            0,
-            alignment=Qt.AlignmentFlag.AlignTop,
-        )
-
         top_row.addStretch(1)
-        root.addLayout(top_row)
+        left_stack.addLayout(top_row)
 
-        # --------------------------------------------------------------
-        # Bottom row:
-        # Reconciliation | Cost Approach | Football Field Chart
-        # --------------------------------------------------------------
         bottom_row = QHBoxLayout()
         bottom_row.setSpacing(10)
         bottom_row.setContentsMargins(0, 0, 0, 0)
-
         bottom_row.addWidget(
             self._build_reconciliation_panel(),
             0,
             alignment=Qt.AlignmentFlag.AlignTop,
         )
 
-        bottom_row.addWidget(
-            self._build_cost_panel(),
-            0,
-            alignment=Qt.AlignmentFlag.AlignTop,
-        )
-
         self.football_chart = FootballFieldChart()
-
         football_field_container = QVBoxLayout()
         football_field_link = _link_label("Football Field Chart")
         football_field_link.linkActivated.connect(
@@ -516,13 +504,19 @@ class DashboardPage(QWidget):
         )
         football_field_container.addWidget(football_field_link)
         football_field_container.addWidget(self.football_chart)
-
         bottom_row.addLayout(football_field_container, 0)
 
         bottom_row.addStretch(1)
-        root.addLayout(bottom_row)
+        left_stack.addLayout(bottom_row)
 
-        # Preserve unused space intentionally.
+        main_row.addLayout(left_stack, 1)
+        main_row.addWidget(
+            self._build_value_bridge_panel(),
+            0,
+            alignment=Qt.AlignmentFlag.AlignTop,
+        )
+
+        root.addLayout(main_row)
         root.addStretch(1)
 
         self.setLayout(root)
@@ -1934,35 +1928,248 @@ class DashboardPage(QWidget):
     # Temporary top-right space probe
     # ------------------------------------------------------------------
 
-    def _build_top_right_probe(self) -> QFrame:
-        frame = self._panel_frame(220)
+    def _build_value_bridge_panel(self) -> QFrame:
+        frame = self._panel_frame(360)
 
         outer = QVBoxLayout()
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(6)
-        outer.addWidget(_hdr("Future Space"))
+        outer.addWidget(_hdr("Value Bridge"))
 
-        inner = QVBoxLayout()
-        inner.setContentsMargins(8, 8, 8, 8)
+        self.value_bridge_layout = QVBoxLayout()
+        self.value_bridge_layout.setContentsMargins(8, 8, 8, 8)
+        self.value_bridge_layout.setSpacing(3)
+        self.value_bridge_layout.addWidget(QLabel("Waiting for page data..."))
 
-        for text in [
-            "Top-right probe",
-            "Use this area later for:",
-            "• dynamic charts",
-            "• helper lists",
-            "• summaries",
-        ]:
-            inner.addWidget(
-                QLabel(text),
-                alignment=Qt.AlignmentFlag.AlignLeft,
-            )
-
-        inner.addStretch(1)
-        outer.addLayout(inner)
+        outer.addLayout(self.value_bridge_layout)
+        outer.addStretch(1)
 
         frame.setLayout(outer)
         frame.adjustSize()
         return frame
+
+    def _clear_value_bridge_panel(self):
+        layout = getattr(self, "value_bridge_layout", None)
+        if layout is None:
+            return
+
+        while layout.count():
+            item = layout.takeAt(0)
+            widget = item.widget()
+            child_layout = item.layout()
+
+            if widget is not None:
+                widget.deleteLater()
+            elif child_layout is not None:
+                while child_layout.count():
+                    child_item = child_layout.takeAt(0)
+                    child_widget = child_item.widget()
+                    if child_widget is not None:
+                        child_widget.deleteLater()
+
+    def _vb_label(self, text: str, bold: bool = False) -> QLabel:
+        label = QLabel(text)
+        label.setWordWrap(True)
+        if bold:
+            label.setStyleSheet(get_bold_style())
+        return label
+
+    def _vb_money(self, value) -> str:
+        if value is None:
+            return "-"
+        try:
+            return f"{float(value):,.0f}"
+        except (TypeError, ValueError):
+            return "-"
+
+    def _vb_pct(self, value) -> str:
+        if value is None:
+            return "-"
+        try:
+            return f"{float(value) * 100:.2f}%"
+        except (TypeError, ValueError):
+            return "-"
+
+    def _vb_add_input_row(self, label: str, value, source: str):
+        row = QHBoxLayout()
+        row.setSpacing(4)
+
+        lbl = QLabel(label)
+        lbl.setFixedWidth(145)
+        val = QLabel(self._vb_money(value))
+        val.setFixedWidth(70)
+        val.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        src = QLabel(source)
+        src.setStyleSheet(get_grey_disabled_style())
+
+        row.addWidget(lbl)
+        row.addWidget(val)
+        row.addWidget(src)
+        row.addStretch(1)
+
+        self.value_bridge_layout.addLayout(row)
+
+    def _vb_add_amount_row(self, label: str, low, high, *, highlight: bool = False):
+        row = QHBoxLayout()
+        row.setSpacing(4)
+
+        lbl = QLabel(label)
+        lbl.setWordWrap(True)
+        lbl.setFixedWidth(220)
+
+        high_lbl = QLabel(self._vb_money(high))
+        low_lbl = QLabel(self._vb_money(low))
+        for widget in (high_lbl, low_lbl):
+            widget.setFixedWidth(75)
+            widget.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+
+        if highlight:
+            style = "color: #e5c07b; font-weight: bold;"
+            lbl.setStyleSheet(style)
+            high_lbl.setStyleSheet(style)
+            low_lbl.setStyleSheet(style)
+
+        row.addWidget(lbl)
+        row.addWidget(high_lbl)
+        row.addWidget(low_lbl)
+        row.addStretch(1)
+
+        self.value_bridge_layout.addLayout(row)
+
+    def _vb_target_key(self, source_basis: str, target: str) -> str:
+        inputs = self._get_project_inputs()
+        home_basis = (
+            "Equity"
+            if getattr(inputs, "basis_of_value", "") == "Equity Value"
+            else "BEV"
+        )
+        return f"{'equity' if home_basis == 'Equity' else 'bev'}_{target}"
+
+    def _vb_method_bridges(self, bridge_inputs: BridgeInputs) -> dict:
+        from Canneberge.Ui.dcf_page import _parse_label_as_float as parse
+
+        inputs = self._get_project_inputs()
+        home_basis = getattr(inputs, "basis_of_value", "Business Enterprise Value")
+        gpc_source = "Equity" if home_basis == "Equity Value" else "BEV"
+        dcf_source = (
+            "Equity"
+            if getattr(self._dcf_page, "_cash_flows_to", "FCFF") == "FCFE"
+            else "BEV"
+        )
+
+        return {
+            "DCF": {
+                "natural": "controlling",
+                "source_basis": dcf_source,
+                "result": run_bridge(
+                    parse(self._dcf_page.bridge_fv_low_label.text()),
+                    parse(self._dcf_page.bridge_fv_high_label.text()),
+                    natural_level="controlling",
+                    source_basis=dcf_source,
+                    bi=bridge_inputs,
+                ),
+            },
+            "GPC": {
+                "natural": "minority",
+                "source_basis": gpc_source,
+                "result": run_bridge(
+                    parse(self._gpc_page.fmv_low_label.text()),
+                    parse(self._gpc_page.fmv_high_label.text()),
+                    natural_level="minority",
+                    source_basis=gpc_source,
+                    bi=bridge_inputs,
+                ),
+            },
+            "GT": {
+                "natural": "controlling",
+                "source_basis": "BEV",
+                "result": run_bridge(
+                    parse(self._gt_page.fmv_low_label.text()),
+                    parse(self._gt_page.fmv_high_label.text()),
+                    natural_level="controlling",
+                    source_basis="BEV",
+                    bi=bridge_inputs,
+                ),
+            },
+        }
+
+    def _populate_value_bridge_panel(self, bridge_inputs: BridgeInputs):
+        if not hasattr(self, "value_bridge_layout"):
+            return
+
+        self._clear_value_bridge_panel()
+
+        target = self.target_level()
+        inputs = self._get_project_inputs()
+        home_basis = (
+            "Equity"
+            if getattr(inputs, "basis_of_value", "") == "Equity Value"
+            else "BEV"
+        )
+
+        self.value_bridge_layout.addWidget(
+            self._vb_label(f"Target Level: {target.capitalize()}", bold=True)
+        )
+
+        self.value_bridge_layout.addWidget(self._vb_label("Shared Inputs", bold=True))
+        self._vb_add_input_row("Cash & Equivalents", bridge_inputs.cash, "Subject BS TTM")
+        self._vb_add_input_row("Debt", bridge_inputs.debt, "Subject BS TTM")
+        self._vb_add_input_row("Preferred Stock", bridge_inputs.preferred_stock, "Subject BS TTM")
+        self._vb_add_input_row("Minority Interest", bridge_inputs.minority_interest, "Subject BS TTM")
+        self._vb_add_input_row("NWC Surplus/(Deficit)", bridge_inputs.nwc_surplus, "NWC page")
+        self._vb_add_input_row("Non-Operating Assets", bridge_inputs.non_operating, "Dashboard")
+
+        cp_lbl = QLabel(f"Control Premium: {self._vb_pct(bridge_inputs.control_premium)}    Dashboard")
+        dloc_lbl = QLabel(f"DLOC: {self._vb_pct(bridge_inputs.dloc)}    Dashboard")
+        cp_lbl.setStyleSheet(get_grey_disabled_style())
+        dloc_lbl.setStyleSheet(get_grey_disabled_style())
+        self.value_bridge_layout.addWidget(cp_lbl)
+        self.value_bridge_layout.addWidget(dloc_lbl)
+
+        bridges = self._vb_method_bridges(bridge_inputs)
+
+        for method in ("DCF", "GPC", "GT"):
+            info = bridges.get(method) or {}
+            result = info.get("result") or {}
+            natural = info.get("natural", "?")
+            source_basis = info.get("source_basis", "?")
+            target_key = self._vb_target_key(source_basis, target)
+            target_pair = result.get(target_key, (None, None))
+
+            adjusted = (
+                "no adjustment"
+                if natural == target
+                else ("DLOC applied" if target == "minority" else "Control Premium applied")
+            )
+
+            self.value_bridge_layout.addWidget(self._vb_label(method, bold=True))
+            meta = QLabel(
+                f"native {source_basis}, {natural} · {natural} → {target}, {adjusted}"
+            )
+            meta.setStyleSheet(get_grey_disabled_style())
+            self.value_bridge_layout.addWidget(meta)
+
+            self._vb_add_amount_row("", None, None)
+            self._vb_add_amount_row("High / Low", target_pair[0], target_pair[1], highlight=False)
+
+            for label, low, high in result.get("lines", []):
+                hit = False
+                if target_pair != (None, None) and low is not None and high is not None:
+                    hit = (
+                        abs(low - target_pair[0]) <= 0.005
+                        and abs(high - target_pair[1]) <= 0.005
+                    )
+                self._vb_add_amount_row(label, low, high, highlight=hit)
+
+            pretty = f"{home_basis}, {target}"
+            self._vb_add_amount_row(
+                f"→ Dashboard ({pretty})",
+                target_pair[0],
+                target_pair[1],
+                highlight=False,
+            )
+
+        self.value_bridge_layout.addStretch(1)
 
     # ------------------------------------------------------------------
     # Cost Approach
@@ -2568,6 +2775,7 @@ class DashboardPage(QWidget):
         self.observed_market_value.setText(fmt(observed))
 
         self._update_football_field(bridge_inputs, basis, concluded)
+        self._populate_value_bridge_panel(bridge_inputs)
 
     def _share_price_on_basis(self, bridge_inputs, basis) -> Optional[float]:
         """

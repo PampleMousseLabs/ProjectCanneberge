@@ -235,7 +235,6 @@ class GTPage(QWidget):
         self._build_selected_multiples_section()
         self._build_subject_section()
         self._build_weighting_section()
-        self._build_bridge_section()
 
         # Push everything to the top
         self.grid.setRowStretch(self._current_row + 50, 1)
@@ -829,75 +828,6 @@ class GTPage(QWidget):
         )
         self.fmv_high_label.setText(
             _fmt_currency(fmv_high) if fmv_high is not None else "NA"
-        )
-
-        self.bridge_labels_low["fmv_bev_start"].setText(
-            _fmt_currency(fmv_low) if fmv_low is not None else "NA"
-        )
-        self.bridge_labels_high["fmv_bev_start"].setText(
-            _fmt_currency(fmv_high) if fmv_high is not None else "NA"
-        )
-
-        # Equity bridge
-        dloc = _parse_pct(self.dloc_input.text())
-
-        try:
-            debt = self._get_subject_debt()
-        except Exception:
-            debt = None
-
-        debt_str = _fmt_currency(debt) if debt is not None else "NA"
-        self.bridge_labels_low["total_debt"].setText(debt_str)
-        self.bridge_labels_high["total_debt"].setText(debt_str)
-
-        eq_ctrl_low = (
-            fmv_low - debt if fmv_low is not None and debt is not None else None
-        )
-        eq_ctrl_high = (
-            fmv_high - debt if fmv_high is not None and debt is not None else None
-        )
-        self.bridge_labels_low["eq_ctrl"].setText(
-            _fmt_currency(eq_ctrl_low) if eq_ctrl_low is not None else "NA"
-        )
-        self.bridge_labels_high["eq_ctrl"].setText(
-            _fmt_currency(eq_ctrl_high) if eq_ctrl_high is not None else "NA"
-        )
-
-        dloc_str = _fmt_pct_display(dloc)
-        self.bridge_labels_low["dloc_pct"].setText(dloc_str)
-        self.bridge_labels_high["dloc_pct"].setText(dloc_str)
-        
-        eq_nctrl_low = (
-            eq_ctrl_low * (1 - dloc)
-            if eq_ctrl_low is not None and dloc is not None else None
-        )
-        eq_nctrl_high = (
-            eq_ctrl_high * (1 - dloc)
-            if eq_ctrl_high is not None and dloc is not None else None
-        )
-        self.bridge_labels_low["eq_nctrl"].setText(
-            _fmt_currency(eq_nctrl_low) if eq_nctrl_low is not None else "NA"
-        )
-        self.bridge_labels_high["eq_nctrl"].setText(
-            _fmt_currency(eq_nctrl_high) if eq_nctrl_high is not None else "NA"
-        )
-
-        self.bridge_labels_low["total_debt_add"].setText(debt_str)
-        self.bridge_labels_high["total_debt_add"].setText(debt_str)
-
-        bev_nctrl_low = (
-            eq_nctrl_low + debt
-            if eq_nctrl_low is not None and debt is not None else None
-        )
-        bev_nctrl_high = (
-            eq_nctrl_high + debt
-            if eq_nctrl_high is not None and debt is not None else None
-        )
-        self.bridge_labels_low["bev_nctrl"].setText(
-            _fmt_currency(bev_nctrl_low) if bev_nctrl_low is not None else "NA"
-        )
-        self.bridge_labels_high["bev_nctrl"].setText(
-            _fmt_currency(bev_nctrl_high) if bev_nctrl_high is not None else "NA"
         )
 
         chart_labels = [
