@@ -1,5 +1,14 @@
 # Open Issues Audit: PampleMousseLabs/ProjectCanneberge
 
+## #36: web app general
+- **State:** open
+- **URL:** https://github.com/PampleMousseLabs/ProjectCanneberge/issues/36
+
+### Description
+Make the header label (Home, Dashboard, WACC, DCF, NWC, Debt schedule, GT, GPC, etc) static so when scrolling the page its still there (for nav, save, open, etc). 
+
+---
+
 ## #33: y finance / Stock analysis/marketscreener
 - **State:** open
 - **URL:** https://github.com/PampleMousseLabs/ProjectCanneberge/issues/33
@@ -13,22 +22,7 @@ KRX: 005930
 
 ---
 
-## #32: desktop -> web -> desktop
-- **State:** open
-- **URL:** https://github.com/PampleMousseLabs/ProjectCanneberge/issues/32
-
-### Description
-Need to update the desktop -> web -> desktop capabilities so saving inputs and save states are transferrable between web and desktop versions. 
-
-Additionally, we extracted some math from some pages into Canneberge/Calculations so we could run the math there instead of in web pages (DCF, GT NWC, debt_schedule). 
-
-We need to update those pages /Ui pages to point to /Calculations for their math too so consistency can be made for save states and for everything else consistency wise. 
-
-Right now, desktop app's pages that can run math inside of them do, they aren't pointed to /Calculations like web app's are. 
-
----
-
-## #31: Input field focus/lag/cursor returns home
+## #31: Partial Close - Input field focus/lag/cursor returns home
 - **State:** open
 - **URL:** https://github.com/PampleMousseLabs/ProjectCanneberge/issues/31
 
@@ -200,33 +194,6 @@ APP WIDE - Generally speaking, things aren't auto calculating 1. fast, or 2. at 
 
 ---
 
-## #29: web app reverse DCF
-- **State:** open
-- **URL:** https://github.com/PampleMousseLabs/ProjectCanneberge/issues/29
-
-### Description
-need reverse dcf
-
----
-
-## #28: GPC page
-- **State:** open
-- **URL:** https://github.com/PampleMousseLabs/ProjectCanneberge/issues/28
-
-### Description
-need multiples candlestick chart
-
----
-
-## #27: GPC page
-- **State:** open
-- **URL:** https://github.com/PampleMousseLabs/ProjectCanneberge/issues/27
-
-### Description
-need bridge labels updating for BEV or Equity conclusion
-
----
-
 ## #26: web WACC page
 - **State:** open
 - **URL:** https://github.com/PampleMousseLabs/ProjectCanneberge/issues/26
@@ -264,20 +231,6 @@ Does this work on all pages (aka main window)
 Right now on completion stops at "StockAnalysis complete. xxxx rows." 
 
 Need to update that either to all complete or list all methods with a checkmark when complete or something else
-
----
-
-## #22: Dashboard page FV reconciliations
-- **State:** open
-- **URL:** https://github.com/PampleMousseLabs/ProjectCanneberge/issues/22
-
-### Description
-For BEV, need to go through the full bridge. Right now, reconciliation values from GPC page are right after weighting section, need to be after full GPC bridge section. 
-
-For equity this is not the case, can stop after weighting section
-
-
-In general - GPC page bridge section needs to be cleaned up now that we have the hidden dashboard bridge too. 
 
 ---
 

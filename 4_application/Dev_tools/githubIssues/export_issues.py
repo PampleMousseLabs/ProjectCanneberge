@@ -5,6 +5,8 @@ Usage: penguin: cd ~/PampleMousseLabs/ProjectCanneberge/4_application python exp
 import sys
 import json
 import urllib.request
+from pathlib import Path
+
 
 def main():
     if len(sys.argv) < 3:
@@ -29,7 +31,7 @@ def main():
         print(f"Error fetching issues: {e}")
         sys.exit(1)
 
-    out_path = "issues_audit.md"
+    out_path = Path(__file__).resolve().parent / "issues_audit.md"
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(f"# Open Issues Audit: {owner}/{repo}\n\n")
         count = 0
