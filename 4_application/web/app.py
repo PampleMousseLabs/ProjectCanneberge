@@ -392,5 +392,6 @@ def on_new_session(n_clicks):
 
 
 if __name__ == "__main__":
-    print("🚀 Canneberge Web Server starting on http://0.0.0.0:8050")
+    print("🚀 Canneberge Web Server starting on http://127.0.0.1:8050")
+    print("🔒 Tailscale HTTPS: https://penguin.tail7ee5e4.ts.net")
     app.run(host="127.0.0.1", port=8050, debug=True)
