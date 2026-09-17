@@ -1121,10 +1121,8 @@ class DCFPage(QWidget):
         self.bridge_fv_base_label.setStyleSheet(get_bold_style() + get_border_above_style() + get_border_below_style())
         self._lbl_sensitivity_header.setStyleSheet(get_bold_style())
         self._lbl_wacc_ltgr_corner.setStyleSheet(get_bold_style())
-        for inp in self.sens_wacc_inputs:
-            inp.setStyleSheet(get_input_style())
-        for inp in self.sens_ltgr_inputs:
-            inp.setStyleSheet(get_input_style())
+        if hasattr(self, "sens_step_input"):
+            self.sens_step_input.setStyleSheet(get_input_style())
         self._recalculate()
 
     def _build_ui(self):
@@ -2148,287 +2146,229 @@ class DCFPage(QWidget):
             widget.setVisible(show)
 
     def _build_sensitivity_table(self) -> QWidget:
+        """
+        Build the DCF sensitivity table with one editable step-size input.
+
+        Headers are labels, not editable cells:
+            discount-rate columns = base + [2,1,0,-1,-2] * step
+            LTGR rows             = base + [2,1,0,-1,-2] * step
+
+        This mirrors the web DCF page after #30 and prevents stale
+        side-column/header overrides when WACC/Ke changes.
+        """
+        from Canneberge.Calculations.dcf import SENS_STEP_MULTIPLIERS
+
         container = QWidget()
+        outer = QVBoxLayout()
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(4)
+
+        step_row = QHBoxLayout()
+        step_row.setContentsMargins(0, 0, 0, 0)
+        step_row.setSpacing(6)
+
+        step_lbl = QLabel("Sensitivity Step:")
+        step_lbl.setFixedWidth(125)
+
+        self.sens_step_input = QLineEdit("1.0%")
+        self.sens_step_input.setFixedWidth(80)
+        self.sens_step_input.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
+        self.sens_step_input.setStyleSheet(get_input_style())
+        self.sens_step_input.editingFinished.connect(self._recalculate)
+
+        hint = QLabel("e.g. 1.0%, 0.50%, 25 bps")
+        hint.setStyleSheet(get_note_style())
+
+        step_row.addWidget(step_lbl)
+        step_row.addWidget(self.sens_step_input)
+        step_row.addWidget(hint)
+        step_row.addStretch(1)
+        outer.addLayout(step_row)
+
         grid = QGridLayout()
-        grid.setHorizontalSpacing(0)
-        grid.setVerticalSpacing(4)
-        grid.setColumnMinimumWidth(1, 16)
-        wacc_now = self._get_discount_rate()
-        ltgr_now = self._get_ltgr()
-        wacc_now = wacc_now if wacc_now is not None else 0.10
-        ltgr_now = ltgr_now if ltgr_now is not None else 0.03
-        self._lbl_wacc_ltgr_corner = QLabel("Discount Rate \\ LTGR", styleSheet=get_bold_style())
-        grid.addWidget(self._lbl_wacc_ltgr_corner, 0, 0)
-        DATA_COL_WIDTH = 78
-        FIRST_DATA_COL = 2
-        self.sens_wacc_inputs = []
-        self._sens_wacc_auto_text = []
-        for col, offset in enumerate([0.02, 0.01, 0.0, -0.01, -0.02]):
-            text = f"{(wacc_now + offset) * 100:.4f}%"
-            inp = QLineEdit(text)
-            inp.setStyleSheet(get_input_style())
-            inp.setFixedWidth(DATA_COL_WIDTH)
-            inp.setAlignment(Qt.AlignmentFlag.AlignRight)
-            inp.editingFinished.connect(self._recalculate)
-            self.sens_wacc_inputs.append(inp)
-            self._sens_wacc_auto_text.append(text)
-            grid.addWidget(inp, 0, FIRST_DATA_COL + col, alignment=Qt.AlignmentFlag.AlignRight)
-        self.sens_ltgr_inputs = []
-        self._sens_ltgr_auto_text = []
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setHorizontalSpacing(3)
+        grid.setVerticalSpacing(3)
+
+        self.sens_corner_label = QLabel("WACC / LTGR")
+        self.sens_corner_label.setStyleSheet(get_bold_style())
+        self.sens_corner_label.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
+        grid.addWidget(self.sens_corner_label, 0, 0)
+
+        self.sens_wacc_labels = []
+        for col, _mult in enumerate(SENS_STEP_MULTIPLIERS):
+            lbl = QLabel("-")
+            lbl.setFixedWidth(COL_WIDTH)
+            lbl.setStyleSheet(get_bold_style())
+            lbl.setAlignment(
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+            )
+            grid.addWidget(lbl, 0, col + 1)
+            self.sens_wacc_labels.append(lbl)
+
+        self.sens_ltgr_labels = []
         self.sens_value_labels = []
-        for row, offset in enumerate([0.02, 0.01, 0.0, -0.01, -0.02]):
-            text = f"{(ltgr_now + offset) * 100:.1f}%"
-            inp = QLineEdit(text)
-            inp.setStyleSheet(get_input_style())
-            inp.setFixedWidth(DATA_COL_WIDTH)
-            inp.setAlignment(Qt.AlignmentFlag.AlignRight)
-            inp.editingFinished.connect(self._recalculate)
-            self.sens_ltgr_inputs.append(inp)
-            self._sens_ltgr_auto_text.append(text)
-            grid.addWidget(inp, row + 1, 0, alignment=Qt.AlignmentFlag.AlignRight)
+
+        for row, _mult in enumerate(SENS_STEP_MULTIPLIERS):
+            ltgr_lbl = QLabel("-")
+            ltgr_lbl.setFixedWidth(COL_WIDTH)
+            ltgr_lbl.setStyleSheet(get_bold_style())
+            ltgr_lbl.setAlignment(
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+            )
+            grid.addWidget(ltgr_lbl, row + 1, 0)
+            self.sens_ltgr_labels.append(ltgr_lbl)
+
             value_row = []
-            for col in range(5):
-                lbl = QLabel("-")
-                lbl.setFixedWidth(DATA_COL_WIDTH)
-                lbl.setAlignment(Qt.AlignmentFlag.AlignRight)
-                grid.addWidget(lbl, row + 1, FIRST_DATA_COL + col, alignment=Qt.AlignmentFlag.AlignRight)
-                value_row.append(lbl)
+            for col in range(len(SENS_STEP_MULTIPLIERS)):
+                val_lbl = QLabel("-")
+                val_lbl.setFixedWidth(COL_WIDTH)
+                val_lbl.setAlignment(
+                    Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+                )
+                grid.addWidget(val_lbl, row + 1, col + 1)
+                value_row.append(val_lbl)
+
             self.sens_value_labels.append(value_row)
-        container.setLayout(grid)
+
+        outer.addLayout(grid)
+        container.setLayout(outer)
         return container
 
-    def _compute_fv_for_assumptions(
-        self,
-        wacc_override: float,
-        ltgr_override: float,
-        ga_override: Optional[float] = None,
-        h_override: Optional[float] = None,
-    ) -> Optional[float]:
-        shared_calc = getattr(self, "_shared_calc", None)
-        if shared_calc is not None:
-            from Canneberge.Calculations.dcf import fv_for_assumptions
 
-            _locals = locals()
-            wacc_arg = None
-            ltgr_arg = None
-
-            for _name in ("wacc", "wacc_override", "wacc_val"):
-                if _name in _locals:
-                    wacc_arg = _locals[_name]
-                    break
-
-            for _name in ("ltgr", "ltgr_override", "ltgr_val"):
-                if _name in _locals:
-                    ltgr_arg = _locals[_name]
-                    break
-
-            return fv_for_assumptions(wacc_arg, ltgr_arg, shared_calc)
-        """
-        Pure mathematical WACC/LTGR override FV calculation.
-        Executes entirely in memory with zero Qt widget mutation.
-        """
-        from Canneberge.Calculations.valuation_surface import evaluate_dcf_fv
-
-        final_idx = self._num_hist + self._num_proj - 1
-        if final_idx < 0:
-            return None
-
-        # 1. Sum explicit PV FCFs
-        pv_fcf_idx = self._row_idx.get("Present Value of Free Cash Flows")
-        sum_pv_fcf = 0.0
-        any_val = False
-        for data_idx, label in enumerate(self._headers):
-            if self._is_historical[data_idx] or label == "Residual":
-                continue
-            v = _read_label(self._calc_labels, pv_fcf_idx, data_idx)
-            if v is not None:
-                sum_pv_fcf += v
-                any_val = True
-
-        # 2. Extract final projected year base metrics
-        pvp_idx = self._row_idx.get("Present Value Period")
-        final_pvp = _read_label(self._calc_labels, pvp_idx, final_idx)
-        final_fcf = _read_label(self._calc_labels, self._row_idx.get("Free Cash Flow"), final_idx)
-        final_revenue = _read_label(self._calc_labels, self._row_idx.get("Revenue"), final_idx)
-        final_capex = _read_label(self._calc_labels, self._row_idx.get("Less: Capital Expenditures (CapEx)"), final_idx)
-
-        # 3. Extract inputs
-        inputs = self.get_project_inputs()
-        model = self.tv_model_combo.currentText()
-
-        other_adj_bridge_text = self.bridge_other_adj_input.text().strip()
-        other_adj_bridge = _parse_label_as_float(other_adj_bridge_text) or 0.0
-
-        # H-Model params (allow overrides from 3D surface sliders)
-        num_years = h_override if h_override is not None else (
-            _parse_label_as_float(self._tv_inputs.get("H-Model", {}).get("num_years").text())
-            if self._tv_inputs.get("H-Model", {}).get("num_years") else 5.0
-        )
-        short_growth_text = self._tv_inputs.get("H-Model", {}).get("short_term_growth")
-        short_growth = ga_override if ga_override is not None else (
-            _parse_pct_field(short_growth_text.text()) if short_growth_text else 0.20
-        )
-
-        # Multiples
-        ebitda_m = _parse_multiple(self._tv_inputs.get("EBITDA Multiple", {}).get("multiple"))
-        rev_m    = _parse_multiple(self._tv_inputs.get("Revenue Multiple", {}).get("multiple"))
-        final_ebitda = _read_label(self._calc_labels, self._row_idx.get("EBITDA"), final_idx)
-
-        # Real, pipeline-computed Residual FCF, rescaled for this LTGR
-        # override — same real number _populate_terminal_value() itself
-        # anchors on, not an approximation. Used for both Gordon Growth
-        # and H-Model (both depend on residual_fcf); Multiple-based
-        # models don't use it at all.
-        residual_idx = self._headers.index("Residual") if "Residual" in self._headers else None
-        residual_fcf = (
-            _read_label(self._calc_labels, self._row_idx.get("Free Cash Flow"), residual_idx)
-            if residual_idx is not None else None
-        )
-        current_ltgr = self._get_ltgr()
-        if residual_fcf is not None and current_ltgr is not None and (1.0 + current_ltgr) != 0:
-            residual_fcf = residual_fcf * (1.0 + ltgr_override) / (1.0 + current_ltgr)
-
-        if model == "Gordon Growth":
-            cap_rate = (wacc_override - ltgr_override) if wacc_override is not None else None
-            if (
-                residual_fcf is not None
-                and cap_rate is not None
-                and cap_rate > 0
-                and final_pvp is not None
-                and any_val
-            ):
-                residual_value = residual_fcf / cap_rate
-                pv_factor = 1.0 / ((1.0 + wacc_override) ** final_pvp)
-                return sum_pv_fcf + (residual_value * pv_factor) + other_adj_bridge
-            return None
-
-        return evaluate_dcf_fv(
-            wacc=wacc_override,
-            ltgr=ltgr_override,
-            sum_pv_explicit_fcf=(sum_pv_fcf if any_val else None),
-            final_pvp=final_pvp,
-            final_fcf=final_fcf,
-            final_revenue=final_revenue,
-            final_capex=final_capex,
-            dep_pct_of_capex=self._get_dep_pct_of_capex(),
-            tax_rate=inputs.subject_tax_rate,
-            dfcfnwc_residual=self._get_nwc_change("Residual"),
-            other_adj_residual=0.0,
-            other_adj_bridge=other_adj_bridge,
-            is_fcfe=(self._cash_flows_to == "FCFE"),
-            final_net_interest=_read_label(self._calc_labels, self._row_idx.get("Net Interest Expense"), final_idx),
-            model=model,
-            h_num_years=num_years,
-            h_short_growth=short_growth,
-            ebitda_mult=ebitda_m,
-            revenue_mult=rev_m,
-            final_ebitda=final_ebitda,
-            residual_fcf_override=residual_fcf,
-        )
     def _populate_sensitivity_table(self, inputs):
-            if not hasattr(self, "sens_value_labels"):
-                return
-            wacc_now = self._get_discount_rate()
-            ltgr_now = self._get_ltgr()
+        """
+        Populate sensitivity from the shared DCF calculation result.
 
-            rate_label = "Ke" if self._cash_flows_to == "FCFE" else "WACC"
-            if hasattr(self, "_lbl_sensitivity_header"):
-                self._lbl_sensitivity_header.setText(f"Sensitivity: Fair Value by {rate_label} / LTGR")
+        Desktop now matches web #30:
+            - one step-size input
+            - no individually editable WACC/LTGR sensitivity headers
+            - headers auto-follow current Ke/WACC and LTGR
+            - Low/High use the shared sensitivity_grid() output
+        """
+        if not hasattr(self, "sens_value_labels"):
+            return
 
-            if wacc_now is not None:
-                for col, offset in enumerate([0.02, 0.01, 0.0, -0.01, -0.02]):
-                    inp = self.sens_wacc_inputs[col]
-                    if inp.text() == self._sens_wacc_auto_text[col]:
-                        new_text = f"{(wacc_now + offset) * 100:.4f}%"
-                        inp.setText(new_text)
-                        self._sens_wacc_auto_text[col] = new_text
+        calc = getattr(self, "_shared_calc", None)
+        if not calc:
+            return
 
-            if ltgr_now is not None:
-                for row, offset in enumerate([0.02, 0.01, 0.0, -0.01, -0.02]):
-                    inp = self.sens_ltgr_inputs[row]
-                    if inp.text() == self._sens_ltgr_auto_text[row]:
-                        new_text = f"{(ltgr_now + offset) * 100:.1f}%"
-                        inp.setText(new_text)
-                        self._sens_ltgr_auto_text[row] = new_text
+        from Canneberge.Calculations.dcf import (
+            SENS_STEP_MULTIPLIERS,
+            SENS_HIGH_COORD,
+            SENS_LOW_COORD,
+            SENS_CENTER_COORD,
+            parse_sensitivity_step,
+            sensitivity_grid,
+        )
 
-            def _pct_or_none(text: str) -> Optional[float]:
-                v = _parse_label_as_float(text)
-                return (v / 100.0) if v is not None else None
+        discount_rate = calc.get("discount_rate")
+        if discount_rate is None:
+            discount_rate = self._get_discount_rate()
 
-            wacc_vals = [_pct_or_none(w.text()) for w in self.sens_wacc_inputs]
-            ltgr_vals = [_pct_or_none(l.text()) for l in self.sens_ltgr_inputs]
+        ltgr = calc.get("ltgr")
+        if ltgr is None:
+            ltgr = self._get_ltgr()
 
-            high_coord = (1, 3)
-            low_coord  = (3, 1)
-            center_coord = (2, 2)
+        if discount_rate is None:
+            discount_rate = 0.10
+        if ltgr is None:
+            ltgr = 0.03
 
-            # 1. First pass: evaluate pure math grid
-            grid_fvs = {}
-            valid_fvs = []
-            for row in range(5):
-                for col in range(5):
-                    w = wacc_vals[col]
-                    l = ltgr_vals[row]
-                    if w is not None and l is not None and w > 0:
-                        fv = self._compute_fv_for_assumptions(w, l)
-                        grid_fvs[(row, col)] = fv
-                        if fv is not None and fv > 0:
-                            valid_fvs.append(fv)
-                    else:
-                        grid_fvs[(row, col)] = None
+        step_text = (
+            self.sens_step_input.text()
+            if hasattr(self, "sens_step_input")
+            else "1.0%"
+        )
+        step = parse_sensitivity_step(step_text)
 
-            min_fv = min(valid_fvs) if valid_fvs else 0.0
-            max_fv = max(valid_fvs) if valid_fvs else 0.0
-            t = theme_manager.current
-
-            # 2. Second pass: display formatted text + RGBA Heatmap tint
-            for row in range(5):
-                for col in range(5):
-                    lbl = self.sens_value_labels[row][col]
-                    fv = grid_fvs.get((row, col))
-
-                    if fv is None:
-                        lbl.setText("-")
-                        lbl.setStyleSheet("")
-                        continue
-
-                    lbl.setText(_fmt_currency(fv))
-
-                    # Normalize range 0.0 (Lowest = Red) to 1.0 (Highest = Green)
-                    if max_fv > min_fv:
-                        norm = (fv - min_fv) / (max_fv - min_fv)
-                    else:
-                        norm = 0.5
-
-                    if norm < 0.5:
-                        # Interpolate Red -> Muted Gray
-                        ratio = norm / 0.5
-                        r = int(211 * (1 - ratio) + 120 * ratio)
-                        g = int(47 * (1 - ratio) + 120 * ratio)
-                        b = int(47 * (1 - ratio) + 120 * ratio)
-                        alpha = 0.35 * (1 - ratio) + 0.1 * ratio
-                    else:
-                        # Interpolate Muted Gray -> Soft Green
-                        ratio = (norm - 0.5) / 0.5
-                        r = int(120 * (1 - ratio) + 46 * ratio)
-                        g = int(120 * (1 - ratio) + 125 * ratio)
-                        b = int(120 * (1 - ratio) + 50 * ratio)
-                        alpha = 0.1 * (1 - ratio) + 0.35 * ratio
-
-                    bg_color = f"rgba({r}, {g}, {b}, {alpha:.2f})"
-                    is_bold = (row, col) in (high_coord, low_coord, center_coord)
-                    weight_css = "font-weight: bold;" if is_bold else ""
-                    text_color = f"color: {t.bold_text if is_bold else t.default_text};"
-                    border_css = f"border: 1px solid {t.emphasis_border};" if (row, col) == center_coord else ""
-
-                    lbl.setStyleSheet(f"background-color: {bg_color}; {weight_css} {text_color} {border_css} padding: 2px 4px; border-radius: 3px;")
-
-            self.bridge_fv_high_label.setText(
-                self.sens_value_labels[high_coord[0]][high_coord[1]].text()
+        rate_label = "Ke" if self._cash_flows_to == "FCFE" else "WACC"
+        if hasattr(self, "_lbl_sensitivity_header"):
+            self._lbl_sensitivity_header.setText(
+                f"Sensitivity: Fair Value by {rate_label} / LTGR"
             )
-            self.bridge_fv_low_label.setText(
-                self.sens_value_labels[low_coord[0]][low_coord[1]].text()
-            )
+        if hasattr(self, "sens_corner_label"):
+            self.sens_corner_label.setText(f"{rate_label} / LTGR")
+
+        wacc_vals = [
+            discount_rate + mult * step
+            for mult in SENS_STEP_MULTIPLIERS
+        ]
+        ltgr_vals = [
+            ltgr + mult * step
+            for mult in SENS_STEP_MULTIPLIERS
+        ]
+
+        for col, value in enumerate(wacc_vals):
+            if col < len(getattr(self, "sens_wacc_labels", [])):
+                self.sens_wacc_labels[col].setText(f"{value * 100:.4f}%")
+
+        for row, value in enumerate(ltgr_vals):
+            if row < len(getattr(self, "sens_ltgr_labels", [])):
+                self.sens_ltgr_labels[row].setText(f"{value * 100:.2f}%")
+
+        result = sensitivity_grid(wacc_vals, ltgr_vals, calc)
+        grid = result.get("grid", {})
+        min_fv = result.get("min_fv") or 0.0
+        max_fv = result.get("max_fv") or 0.0
+
+        for row in range(len(SENS_STEP_MULTIPLIERS)):
+            for col in range(len(SENS_STEP_MULTIPLIERS)):
+                lbl = self.sens_value_labels[row][col]
+                fv = grid.get((row, col))
+
+                if fv is None:
+                    lbl.setText("-")
+                    lbl.setStyleSheet("")
+                    continue
+
+                lbl.setText(_fmt_currency(fv))
+
+                if max_fv > min_fv:
+                    norm = (fv - min_fv) / (max_fv - min_fv)
+                else:
+                    norm = 0.5
+
+                if norm < 0.5:
+                    ratio = norm / 0.5
+                    r = int(211 * (1 - ratio) + 120 * ratio)
+                    g = int(47 * (1 - ratio) + 120 * ratio)
+                    b = int(47 * (1 - ratio) + 120 * ratio)
+                    alpha = 0.35 * (1 - ratio) + 0.1 * ratio
+                else:
+                    ratio = (norm - 0.5) / 0.5
+                    r = int(120 * (1 - ratio) + 46 * ratio)
+                    g = int(120 * (1 - ratio) + 125 * ratio)
+                    b = int(120 * (1 - ratio) + 50 * ratio)
+                    alpha = 0.1 * (1 - ratio) + 0.35 * ratio
+
+                style = (
+                    f"background-color: rgba({r}, {g}, {b}, {alpha:.2f}); "
+                    f"padding: 2px 4px;"
+                )
+
+                if (row, col) in (
+                    SENS_HIGH_COORD,
+                    SENS_LOW_COORD,
+                    SENS_CENTER_COORD,
+                ):
+                    style += " font-weight: bold; color: #ffffff;"
+
+                if (row, col) == SENS_CENTER_COORD:
+                    style += " border: 1px solid #7c68af;"
+
+                lbl.setStyleSheet(style)
+
+        if hasattr(self, "bridge_fv_high_label"):
+            self.bridge_fv_high_label.setText(_fmt_currency(result.get("high")))
+        if hasattr(self, "bridge_fv_low_label"):
+            self.bridge_fv_low_label.setText(_fmt_currency(result.get("low")))
+
+        self._last_sensitivity_result = result
 
     def _populate_fv_bridge(self, inputs):
             calc = getattr(self, "_shared_calc", None) or {}
@@ -2504,6 +2444,11 @@ class DCFPage(QWidget):
             "other_adj_inputs": other_adj,
             "residual_amortization": residual_amortization,
             "bridge_other_adj": self.bridge_other_adj_input.text(),
+            "sens_step": (
+                self.sens_step_input.text()
+                if hasattr(self, "sens_step_input")
+                else "1.0%"
+            ),
             "per_cf_tv_multiples": self._per_cf_tv_multiples,
             "last_cf_mode": self._last_cf_mode,
         }
@@ -2519,6 +2464,13 @@ class DCFPage(QWidget):
         self.bridge_other_adj_input.setText(
             state.get("bridge_other_adj", "")
         )
+
+        if hasattr(self, "sens_step_input"):
+            blocked = self.sens_step_input.blockSignals(True)
+            self.sens_step_input.setText(
+                str(state.get("sens_step", "1.0%") or "1.0%")
+            )
+            self.sens_step_input.blockSignals(blocked)
 
         self._cash_flows_to = state.get("cash_flows_to", "FCFF")
 
