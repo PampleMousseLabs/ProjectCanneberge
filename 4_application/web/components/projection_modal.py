@@ -93,8 +93,9 @@ layout = html.Div([
                     },
                 ),
                 html.Small(
-                    "Leave a purple cell (Tab/Enter/click away) to recalculate. "
-                    "Save writes the session for Subject Financials / DCF. Cancel/X closes.",
+                    "Leave a purple cell (Tab/Enter/click away) to update the draft without "
+                    "remounting the grid. Use Save Projections to recalculate visible rows "
+                    "and write the session for Subject Financials / DCF. Cancel/X closes.",
                     className="text-muted d-block mt-2",
                 ),
             ]),
@@ -683,7 +684,6 @@ def toggle_projection_modal(open_clicks, cancel_clicks, session_data, source_res
 
 # ----- live recalc when leaving a cell -----
 @callback(
-    Output("proj-modal-grid-container", "children", allow_duplicate=True),
     Output("proj-modal-status", "children", allow_duplicate=True),
     Output("proj-draft-store", "data", allow_duplicate=True),
     Output("proj-suppress-recalc", "data", allow_duplicate=True),
@@ -697,13 +697,27 @@ def toggle_projection_modal(open_clicks, cancel_clicks, session_data, source_res
     prevent_initial_call=True,
 )
 def live_recalc(values, ids, session_data, source_results, draft, suppress, is_open):
+    """
+    Proof-case no-remount live recalc.
+
+    Important: this callback intentionally does NOT output
+    proj-modal-grid-container.children. Replacing that table destroys the
+    focused input DOM node after Tab/Enter. This callback only updates the
+    draft store and status line.
+
+    If Tab focus now behaves, the remaining work is to update calculated
+    cells in place via dash.set_props(), not by returning a new table.
+    """
     if not is_open:
-        return no_update, no_update, no_update, no_update
-    # Ignore the synthetic fire right after we rebuild the grid
+        return no_update, no_update, no_update
+
+    # Ignore the synthetic fire right after the grid is initially mounted.
     if suppress:
-        return no_update, no_update, no_update, False
+        return no_update, no_update, False
+
     if not ids:
-        return no_update, no_update, no_update, no_update
+        return no_update, no_update, no_update
+
     try:
         pd = _recalc_from_cells(
             session_data or {},
@@ -713,12 +727,21 @@ def live_recalc(values, ids, session_data, source_results, draft, suppress, is_o
             draft,
             triggered_id=ctx.triggered_id,
         )
-        table, status, _hy, _py, pd = build_table(session_data or {}, source_results or {}, pd)
-        status = f"↻ Updated · {status}"
-        return table, status, _pd_to_blob(pd), True  # suppress next mount wave
+
+        inputs = dict_to_project_inputs(session_data or {})
+        status = (
+            f"↻ Updated draft · {inputs.subject_company_name} "
+            f"({inputs.subject_ticker or 'private'}) · "
+            f"{inputs.company_status} · "
+            f"hist={inputs.historical_years} proj={inputs.projection_years}"
+        )
+
+        # No table rebuild, so no next mount wave to suppress.
+        return status, _pd_to_blob(pd), False
+
     except Exception:
         traceback.print_exc()
-        return no_update, "Recalc error (see terminal)", no_update, False
+        return "Recalc error (see terminal)", no_update, False
 
 
 # ----- hist/proj years: session + home spins + rebuild -----
