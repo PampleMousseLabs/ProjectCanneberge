@@ -25,8 +25,9 @@ from Canneberge.Calculations.dcf import (
     parse_pct,
     parse_number,
     parse_multiple,
+    parse_sensitivity_step,
     sensitivity_grid,
-    SENS_OFFSETS,
+    SENS_STEP_MULTIPLIERS,
 )
 from Canneberge.Calculations.gpc_metrics import get_metric, dropdown_options
 from Canneberge.Calculations.gpc_multiples import get_subject_cash
@@ -207,22 +208,16 @@ def _dcf_fv(session_data: dict, source_results: dict):
 
     dr = calc["discount_rate"] if calc["discount_rate"] is not None else 0.10
     lt = calc["ltgr"] if calc["ltgr"] is not None else 0.03
+    step = parse_sensitivity_step(state.get("sens_step", "1.0%"))
 
-    wacc_vals = [dr + off for off in SENS_OFFSETS]
-    ltgr_vals = [lt + off for off in SENS_OFFSETS]
-
-    saved_w = state.get("sens_wacc") or {}
-    saved_l = state.get("sens_ltgr") or {}
-
-    wacc_use, ltgr_use = [], []
-    for i, off in enumerate(SENS_OFFSETS):
-        key = f"{off:.2f}"
-        wacc_use.append(
-            parse_pct(saved_w[key]) if saved_w.get(key) else wacc_vals[i]
-        )
-        ltgr_use.append(
-            parse_pct(saved_l[key]) if saved_l.get(key) else ltgr_vals[i]
-        )
+    wacc_use = [
+        dr + mult * step
+        for mult in SENS_STEP_MULTIPLIERS
+    ]
+    ltgr_use = [
+        lt + mult * step
+        for mult in SENS_STEP_MULTIPLIERS
+    ]
 
     sens = sensitivity_grid(wacc_use, ltgr_use, calc)
     return calc, sens["low"], sens["high"]

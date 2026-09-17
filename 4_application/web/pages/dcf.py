@@ -22,8 +22,8 @@ from dash import html, Input, Output, State, callback, ctx, ALL, no_update
 from Canneberge.Calculations.dcf import (
     ROW_SPECS, ROWS_WITH_BORDER_ABOVE, ROWS_WITH_SPACER_ABOVE,
     HIST_BLANK_ROWS, PCT_ROWS, FACTOR_ROWS, TV_MODELS,
-    SENS_OFFSETS, SENS_HIGH_COORD, SENS_LOW_COORD, SENS_CENTER_COORD,
-    parse_pct, parse_number, normalise_rate,
+    SENS_STEP_MULTIPLIERS, SENS_HIGH_COORD, SENS_LOW_COORD, SENS_CENTER_COORD,
+    parse_pct, parse_number, parse_sensitivity_step, normalise_rate,
     dcf_period_columns, dcf_fye_years, calculate_ppa,
     build_dcf, sensitivity_grid,
 )
@@ -184,7 +184,13 @@ def _state_from_session(session_data: dict) -> dict:
             dict(raw.get("sens_ltgr") or {})
             if raw.get("sensitivity_override_version") == 2
             else {}
-        ),
+        ),        "tv_inputs": tv_inputs,
+        # v3: sensitivity headers are no longer individually edited.
+        # They are derived from center WACC/LTGR plus one step input.
+        # Legacy sens_wacc / sens_ltgr maps are ignored.
+        "sens_step": raw.get("sens_step", "1.0%"),
+        "sens_wacc": {},
+        "sens_ltgr": {},
         "nols": raw.get("nols", "No"),
         "nwc_by_mgmt": raw.get("nwc_by_mgmt", "No"),
         "valuation_approach": raw.get("valuation_approach", "DCF"),
@@ -480,14 +486,16 @@ def _build_tv_panel(state: dict, calc: dict):
 def _sens_defaults(calc: dict, state: dict):
     dr = calc["discount_rate"] if calc["discount_rate"] is not None else 0.10
     lt = calc["ltgr"] if calc["ltgr"] is not None else 0.03
+    step = parse_sensitivity_step(state.get("sens_step", "1.0%"))
 
-    wacc_texts, ltgr_texts = [], []
-    for off in SENS_OFFSETS:
-        key = f"{off:.2f}"
-        saved = state["sens_wacc"].get(key)
-        wacc_texts.append(saved if saved else f"{(dr + off) * 100:.4f}%")
-        saved_l = state["sens_ltgr"].get(key)
-        ltgr_texts.append(saved_l if saved_l else f"{(lt + off) * 100:.1f}%")
+    wacc_texts = [
+        f"{(dr + mult * step) * 100:.4f}%"
+        for mult in SENS_STEP_MULTIPLIERS
+    ]
+    ltgr_texts = [
+        f"{(lt + mult * step) * 100:.2f}%"
+        for mult in SENS_STEP_MULTIPLIERS
+    ]
     return wacc_texts, ltgr_texts
 
 
@@ -537,31 +545,25 @@ def _build_sensitivity(state: dict, calc: dict):
                                               "width": f"{SENS_W}px"}),
         html.Td("", style={"width": "14px"}),
     ]
-    for i, off in enumerate(SENS_OFFSETS):
+    for i, _mult in enumerate(SENS_STEP_MULTIPLIERS):
         header.append(html.Td(
-            dbc.Input(
-                id={"type": "dcf-sens-wacc", "offset": f"{off:.2f}"},
-                type="text", value=wacc_texts[i], debounce=True, size="sm",
-                style=_INPUT_SENS,
-            ),
-            style={"padding": "1px 2px"},
+            wacc_texts[i],
+            style={**_CELL_B, "width": f"{SENS_W}px",
+                   "textAlign": "center", "padding": "2px 4px"},
         ))
 
     trs = [html.Tr(header)]
 
-    for r, off in enumerate(SENS_OFFSETS):
+    for r, _mult in enumerate(SENS_STEP_MULTIPLIERS):
         cells = [
             html.Td(
-                dbc.Input(
-                    id={"type": "dcf-sens-ltgr", "offset": f"{off:.2f}"},
-                    type="text", value=ltgr_texts[r], debounce=True, size="sm",
-                    style=_INPUT_SENS,
-                ),
-                style={"padding": "1px 2px"},
+                ltgr_texts[r],
+                style={**_CELL_B, "width": f"{SENS_W}px",
+                       "textAlign": "right", "padding": "2px 4px"},
             ),
             html.Td("", style={"width": "14px"}),
         ]
-        for c in range(len(SENS_OFFSETS)):
+        for c in range(len(SENS_STEP_MULTIPLIERS)):
             fv = grid.get((r, c))
             if fv is None:
                 cells.append(html.Td("-", style={**_CELL, "width": f"{SENS_W}px"}))
@@ -661,6 +663,16 @@ layout = dbc.Container([
                                      "display": "inline-block"}),
                 ], className="d-flex", style={"padding": "1px 0"}),
                 html.Div(style={"height": "12px"}),
+                html.Div([
+                    html.Span("Sensitivity Step:",
+                              style={**_LBL, "width": "120px", "display": "inline-block"}),
+                    dbc.Input(id="dcf-sens-step", type="text", value="1.0%",
+                              debounce=True, size="sm",
+                              style={**_INPUT_SENS, "width": "90px",
+                                     "display": "inline-block"}),
+                    html.Span("  e.g. 1.0%, 0.50%, 25 bps",
+                              className="text-muted small ms-2"),
+                ], className="d-flex align-items-center mb-1"),
                 html.Div(id="dcf-sens-header", className="fw-bold text-light",
                          style={"fontSize": "12px", "marginBottom": "4px"}),
                 html.Div(id="dcf-sensitivity-container",
@@ -781,15 +793,22 @@ layout = dbc.Container([
     Output("dcf-ltg-input", "value"),
     Output("dcf-capex-dep-pct", "value"),
     Output("dcf-bridge-other-adj", "value"),
+    Output("dcf-sens-step", "value"),
     Input("_pages_location", "pathname"),
     Input("session-load-timestamp", "data"),
     State("session-store", "data"),
 )
 def hydrate_dcf(pathname, _ts, session_data):
     if pathname not in ("/dcf", "/dcf/"):
-        return (no_update,) * 4
+        return (no_update,) * 5
     s = _state_from_session(session_data)
-    return s["tv_model"], s["ltg_input"], s["capex_dep_pct"], s["bridge_other_adj"]
+    return (
+        s["tv_model"],
+        s["ltg_input"],
+        s["capex_dep_pct"],
+        s["bridge_other_adj"],
+        s["sens_step"],
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -816,9 +835,11 @@ def hydrate_dcf(pathname, _ts, session_data):
     Input("dcf-ltg-input", "value"),
     Input("dcf-capex-dep-pct", "value"),
     Input("dcf-bridge-other-adj", "value"),
+    Input("dcf-sens-step", "value"),
 )
 def render_dcf(pathname, session_data, _ts, source_results,
-               tv_model, ltg_input, capex_dep_pct, bridge_other_adj):
+               tv_model, ltg_input, capex_dep_pct, bridge_other_adj,
+               sens_step):
     if pathname not in ("/dcf", "/dcf/"):
         return (no_update,) * 11
 
@@ -831,6 +852,8 @@ def render_dcf(pathname, session_data, _ts, source_results,
         state["capex_dep_pct"] = capex_dep_pct
     if bridge_other_adj is not None:
         state["bridge_other_adj"] = bridge_other_adj
+    if sens_step is not None:
+        state["sens_step"] = sens_step
 
     calc = _compute(session_data, source_results, state)
     inputs = calc["inputs"]
@@ -874,22 +897,19 @@ def render_dcf(pathname, session_data, _ts, source_results,
     Input("dcf-ltg-input", "value"),
     Input("dcf-capex-dep-pct", "value"),
     Input("dcf-bridge-other-adj", "value"),
+    Input("dcf-sens-step", "value"),
     Input("dcf-residual-amortization", "value", allow_optional=True),
     Input({"type": "dcf-other-adj", "period": ALL}, "value"),
     Input({"type": "dcf-tv-input", "model": ALL, "key": ALL}, "value"),
-    Input({"type": "dcf-sens-wacc", "offset": ALL}, "value"),
-    Input({"type": "dcf-sens-ltgr", "offset": ALL}, "value"),
     State({"type": "dcf-other-adj", "period": ALL}, "id"),
     State({"type": "dcf-tv-input", "model": ALL, "key": ALL}, "id"),
-    State({"type": "dcf-sens-wacc", "offset": ALL}, "id"),
-    State({"type": "dcf-sens-ltgr", "offset": ALL}, "id"),
     State("session-store", "data"),
     State("source-results-store", "data"),
     prevent_initial_call=True,
 )
-def persist_dcf(tv_model, ltg_input, capex_dep_pct, bridge_other_adj,
-                residual_amort, other_adj_vals, tv_vals, sens_w_vals, sens_l_vals,
-                other_adj_ids, tv_ids, sens_w_ids, sens_l_ids,
+def persist_dcf(tv_model, ltg_input, capex_dep_pct, bridge_other_adj, sens_step,
+                residual_amort, other_adj_vals, tv_vals,
+                other_adj_ids, tv_ids,
                 session_data, source_results):
     if not ctx.triggered_id:
         return no_update
@@ -910,12 +930,6 @@ def persist_dcf(tv_model, ltg_input, capex_dep_pct, bridge_other_adj,
             if m in tv_inputs and k:
                 tv_inputs[m][k] = "" if val is None else str(val)
 
-    # Only explicitly user-modified sensitivity headers become saved
-    # overrides. Generated/default cells must remain auto-linked to the
-    # current Ke/WACC and LTGR.
-    sens_wacc = dict(state["sens_wacc"])
-    sens_ltgr = dict(state["sens_ltgr"])
-
     new_state = {
         "ltg_input": ltg_input if ltg_input is not None else state["ltg_input"],
         "tv_model": tv_model if tv_model in TV_MODELS else state["tv_model"],
@@ -925,88 +939,14 @@ def persist_dcf(tv_model, ltg_input, capex_dep_pct, bridge_other_adj,
         "residual_amortization": residual_amort if residual_amort is not None else state["residual_amortization"],
         "other_adj_inputs": other_adj,
         "tv_inputs": tv_inputs,
-        "sens_wacc": sens_wacc,
-        "sens_ltgr": sens_ltgr,
-        "sensitivity_override_version": 2,
+        "sens_step": sens_step if sens_step is not None else state["sens_step"],
+        "sens_wacc": {},
+        "sens_ltgr": {},
+        "sensitivity_override_version": 3,
         "nols": state["nols"],
         "nwc_by_mgmt": state["nwc_by_mgmt"],
         "valuation_approach": state["valuation_approach"],
     }
-
-    calc = _compute(session_data, source_results, new_state)
-
-    # A sensitivity grid is callback-generated. When the table remounts,
-    # Dash supplies every default cell value again. Compare each visible
-    # value with its current auto-generated value:
-    #
-    #   same as auto value -> do not save an override
-    #   different          -> user intentionally overrode that cell
-    #
-    # This is the Dash equivalent of desktop's _sens_*_auto_text logic.
-    triggered = ctx.triggered_id
-    trigger_type = triggered.get("type") if isinstance(triggered, dict) else triggered
-
-    if trigger_type == "dcf-sens-wacc" and sens_w_ids:
-        manual_wacc = {}
-        current_rate = calc["discount_rate"]
-        if current_rate is not None:
-            for cid, value in zip(sens_w_ids or [], sens_w_vals or []):
-                if not isinstance(cid, dict):
-                    continue
-                offset_text = cid.get("offset")
-                try:
-                    offset = float(offset_text)
-                except (TypeError, ValueError):
-                    continue
-
-                entered = parse_pct(value)
-                auto_value = current_rate + offset
-
-                # Blank restores automatic behavior. Numeric values equal
-                # to the generated default are also automatic.
-                if entered is None:
-                    continue
-                if abs(entered - auto_value) > 1e-10:
-                    manual_wacc[str(offset_text)] = str(value)
-
-        sens_wacc = manual_wacc
-        new_state["sens_wacc"] = sens_wacc
-
-    if trigger_type == "dcf-sens-ltgr" and sens_l_ids:
-        manual_ltgr = {}
-        current_ltgr = calc["ltgr"]
-        if current_ltgr is not None:
-            for cid, value in zip(sens_l_ids or [], sens_l_vals or []):
-                if not isinstance(cid, dict):
-                    continue
-                offset_text = cid.get("offset")
-                try:
-                    offset = float(offset_text)
-                except (TypeError, ValueError):
-                    continue
-
-                entered = parse_pct(value)
-                auto_value = current_ltgr + offset
-
-                if entered is None:
-                    continue
-                if abs(entered - auto_value) > 1e-10:
-                    manual_ltgr[str(offset_text)] = str(value)
-
-        sens_ltgr = manual_ltgr
-        new_state["sens_ltgr"] = sens_ltgr
-
-    new_state.update({
-        "effective_cash_flows_to": calc["cash_flows_to"],
-        "discount_rate": calc["discount_rate"],
-        "sum_pv_fcf": calc["sum_pv_fcf"],
-        "pv_residual": calc["pv_residual"],
-        "fv_base": calc["fv_base"],
-        "residual_revenue": calc["rows"]["revenue"].get("Residual"),
-    })
-
-    if new_state == prev:
-        return no_update
 
     session_data["dcf_page_state"] = new_state
     return session_data

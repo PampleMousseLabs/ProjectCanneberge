@@ -40,7 +40,7 @@ from typing import Optional, Dict, List, Tuple, Any
 __all__ = [
     "ROW_SPECS", "ROWS_WITH_BORDER_ABOVE", "ROWS_WITH_SPACER_ABOVE",
     "HIST_BLANK_ROWS", "TV_MODELS", "PCT_ROWS", "FACTOR_ROWS",
-    "parse_pct", "parse_number", "parse_multiple", "normalise_rate",
+    "parse_pct", "parse_number", "parse_multiple", "parse_sensitivity_step", "normalise_rate",
     "safe_div", "dcf_period_columns", "dcf_fye_years", "calculate_ppa",
     "build_dcf", "fv_for_assumptions", "sensitivity_grid",
     "residual_revenue",
@@ -115,6 +115,45 @@ def parse_pct(text) -> Optional[float]:
     """Always divide by 100. '3.0%' and '3' both -> 0.03."""
     val = parse_number(text)
     return None if val is None else val / 100.0
+
+
+def parse_sensitivity_step(text, default: float = 0.01) -> float:
+    """
+    Parse DCF sensitivity step size.
+
+    Accepted examples:
+        "1.0%"   -> 0.0100
+        "0.50%"  -> 0.0050
+        "25 bps" -> 0.0025
+        "25bps"  -> 0.0025
+        "1"      -> 0.0100 via parse_pct()
+
+    Returns default when blank/invalid/non-positive.
+    """
+    if text is None or str(text).strip() == "":
+        return default
+
+    raw = str(text).strip().lower().replace(",", "")
+    is_bps = "bp" in raw
+
+    if is_bps:
+        cleaned = (
+            raw.replace("basis points", "")
+               .replace("basis point", "")
+               .replace("bps", "")
+               .replace("bp", "")
+               .strip()
+        )
+        val = parse_number(cleaned)
+        if val is None or val <= 0:
+            return default
+        return val / 10000.0
+
+    val = parse_pct(raw)
+    if val is None or val <= 0:
+        return default
+
+    return val
 
 
 def parse_multiple(text) -> Optional[float]:
@@ -697,7 +736,8 @@ def fv_for_assumptions(
     return (sum_pv_fcf or 0.0) + (pv_residual or 0.0) + base["other_adj_bridge"]
 
 
-SENS_OFFSETS = [0.02, 0.01, 0.0, -0.01, -0.02]
+SENS_OFFSETS = [0.02, 0.01, 0.0, -0.01, -0.02]  # legacy default offsets
+SENS_STEP_MULTIPLIERS = [2, 1, 0, -1, -2]
 SENS_HIGH_COORD = (1, 3)
 SENS_LOW_COORD = (3, 1)
 SENS_CENTER_COORD = (2, 2)
