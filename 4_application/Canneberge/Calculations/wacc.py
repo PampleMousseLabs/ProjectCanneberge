@@ -55,7 +55,8 @@ __all__ = [
     "BETA_TYPE_OPTIONS", "BETA_FREQUENCY_OPTIONS", "CAPITAL_STRUCTURE_OPTIONS",
     "CAPITAL_STRUCTURE_HEADER_MAP", "CORPORATE_RATE_SERIES", "BETA_COLUMN_MAP",
     "RISK_FREE_SERIES_ID", "DATA_COLS", "BETA_COLS", "STAT_NAMES",
-    "parse_pct_input", "to_float", "fred_pct", "fmt_beta", "fmt_pct",
+    "parse_pct_input", "parse_premium_input", "format_premium_input",
+    "to_float", "fred_pct", "fmt_beta", "fmt_pct",
     "quartile", "unlevered_beta", "relevered_beta",
     "observed_beta", "historical_periods_for_structure",
     "comp_row_metrics", "comp_table", "column_statistics",
@@ -118,6 +119,79 @@ STAT_NAMES = [
 # ---------------------------------------------------------------------------
 # Parsing / formatting
 # ---------------------------------------------------------------------------
+
+def parse_premium_input(text) -> Optional[float]:
+    """
+    Parse WACC premium inputs: ERP, Size Premium, CSRP.
+
+    These are normally typed as percentage points, not capital-structure
+    fractions. This intentionally differs from parse_pct_input(), which is
+    still used for Debt/TIC and other ratio-style inputs.
+
+    Accepted behavior:
+        "1"      -> 0.0100
+        "1.0"    -> 0.0100
+        "1%"     -> 0.0100
+        "0.01"   -> 0.0100
+        "0.5"    -> 0.0050
+        "0.50%"  -> 0.0050
+        "5"      -> 0.0500
+
+    Rule:
+        - Explicit percent sign always means percentage points.
+        - Blank/invalid returns None.
+        - 0.0 returns 0.0.
+        - Values between 0 and 0.10 are treated as decimal rates
+          so 0.01 can be used for 1%.
+        - All other magnitudes are treated as percentage points.
+    """
+    if text is None:
+        return None
+
+    raw = str(text).strip().replace(",", "")
+    if raw == "":
+        return None
+
+    has_pct = "%" in raw
+    cleaned = raw.replace("%", "").strip()
+
+    try:
+        value = float(cleaned)
+    except (TypeError, ValueError):
+        return None
+
+    if value != value:
+        return None
+
+    if value == 0:
+        return 0.0
+
+    if has_pct:
+        return value / 100.0
+
+    abs_value = abs(value)
+
+    # Decimal-rate escape hatch: 0.01 -> 1.0%, 0.05 -> 5.0%.
+    if 0 < abs_value < 0.10:
+        return value
+
+    # Percentage-point convention: 0.5 -> 0.5%, 1 -> 1%, 5 -> 5%.
+    return value / 100.0
+
+
+def format_premium_input(text_or_value) -> str:
+    """
+    Normalize a premium input for save/display.
+
+    Keeps session state stable:
+        "1", "1%", "0.01" -> "1.0%"
+        "0.5"             -> "0.5%"
+    """
+    value = parse_premium_input(text_or_value)
+    if value is None:
+        return ""
+    return f"{value * 100:.1f}%"
+
 
 def to_float(raw) -> Optional[float]:
     if raw is None:

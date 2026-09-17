@@ -1001,12 +1001,14 @@ def persist_dashboard(
         wacc["selected_debt_tic"] = debt_tic
     if beta is not None:
         wacc["selected_relevered_beta"] = beta
+    from Canneberge.Calculations.wacc import format_premium_input
+
     if erp is not None:
-        wacc["equity_risk_premium"] = erp
+        wacc["equity_risk_premium"] = format_premium_input(erp)
     if size_p is not None:
-        wacc["size_premium"] = size_p
+        wacc["size_premium"] = format_premium_input(size_p)
     if csrp is not None:
-        wacc["csrp"] = csrp
+        wacc["csrp"] = format_premium_input(csrp)
     if pretax_series in CORPORATE_RATE_SERIES:
         wacc["pretax_debt_series"] = pretax_series
 

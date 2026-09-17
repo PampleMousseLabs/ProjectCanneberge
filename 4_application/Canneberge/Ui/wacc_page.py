@@ -31,6 +31,8 @@ from PyQt6.QtCore import Qt
 
 from Canneberge.Ui.theme import theme_manager
 
+from Canneberge.Calculations.wacc import parse_premium_input
+
 from Canneberge.Calculations.ratio_catalogue import (
     compute_debt_to_tic_book,
     compute_historic_capital_structure,
@@ -902,15 +904,15 @@ class WACCPage(QWidget):
         relevered_beta_selected = _to_float(self.selected_relevered_beta_input.text())
         self.lbl_relevered_beta_display.setText(_fmt_beta(relevered_beta_selected))
 
-        erp = _parse_pct_input(self.input_equity_risk_premium.text())
+        erp = parse_premium_input(self.input_equity_risk_premium.text())
         adjusted_erp = (
             relevered_beta_selected * erp
             if relevered_beta_selected is not None and erp is not None else None
         )
         self.lbl_adjusted_erp.setText(_fmt_pct(adjusted_erp))
 
-        size_premium = _parse_pct_input(self.input_size_premium.text())
-        csrp = _parse_pct_input(self.input_csrp.text())
+        size_premium = parse_premium_input(self.input_size_premium.text())
+        csrp = parse_premium_input(self.input_csrp.text())
 
         cost_of_equity = None
         if None not in (risk_free_rate, adjusted_erp, size_premium, csrp):

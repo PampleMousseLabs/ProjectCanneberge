@@ -33,7 +33,8 @@ from Canneberge.Calculations.wacc import (
     BETA_TYPE_OPTIONS, BETA_FREQUENCY_OPTIONS, CAPITAL_STRUCTURE_OPTIONS,
     CAPITAL_STRUCTURE_HEADER_MAP, CORPORATE_RATE_SERIES,
     DATA_COLS, BETA_COLS, STAT_NAMES,
-    parse_pct_input, to_float, fmt_beta, fmt_pct,
+    parse_pct_input, parse_premium_input, format_premium_input,
+    to_float, fmt_beta, fmt_pct,
     comp_table, column_statistics,
     risk_free_rate, pretax_cost_of_debt,
     cost_of_equity, after_tax_cost_of_debt, wacc_summary,
@@ -187,9 +188,9 @@ def _compute_legacy(session_data: dict, source_results: dict, state: dict) -> di
 
     rf = risk_free_rate(fred_rows)
     be = to_float(state["selected_relevered_beta"])
-    erp = parse_pct_input(state["equity_risk_premium"])
-    sp = parse_pct_input(state["size_premium"])
-    csrp = parse_pct_input(state["csrp"])
+    erp = parse_premium_input(state["equity_risk_premium"])
+    sp = parse_premium_input(state["size_premium"])
+    csrp = parse_premium_input(state["csrp"])
     ke_parts = cost_of_equity(rf, be, erp, sp, csrp)
 
     pretax_kd = pretax_cost_of_debt(fred_rows, state["pretax_debt_series"])
@@ -588,9 +589,21 @@ def persist_wacc(beta_type, beta_frequency, capital_structure,
         "selected_relevered_beta": _keep(
             selected_relevered_beta, "selected_relevered_beta"
         ),
-        "equity_risk_premium": _keep(erp, "equity_risk_premium"),
-        "size_premium": _keep(size_premium, "size_premium"),
-        "csrp": _keep(csrp, "csrp"),
+        "equity_risk_premium": (
+            format_premium_input(erp)
+            if erp not in (None, "")
+            else _keep(erp, "equity_risk_premium")
+        ),
+        "size_premium": (
+            format_premium_input(size_premium)
+            if size_premium not in (None, "")
+            else _keep(size_premium, "size_premium")
+        ),
+        "csrp": (
+            format_premium_input(csrp)
+            if csrp not in (None, "")
+            else _keep(csrp, "csrp")
+        ),
         "pretax_debt_series": _keep(pretax_debt_series, "pretax_debt_series"),
         "excluded_rows": exclusions,
     }

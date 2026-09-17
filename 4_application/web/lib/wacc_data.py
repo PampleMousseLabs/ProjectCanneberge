@@ -15,7 +15,7 @@ from Canneberge.Calculations.wacc import (
     comp_table, column_statistics,
     risk_free_rate, pretax_cost_of_debt,
     cost_of_equity, after_tax_cost_of_debt, wacc_summary,
-    parse_pct_input, to_float,
+    parse_pct_input, parse_premium_input, to_float,
 )
 from web.lib.session_io import dict_to_project_inputs
 
@@ -91,9 +91,9 @@ def get_wacc_results(
 
     rf = risk_free_rate(fred_rows)
     be = to_float(state["selected_relevered_beta"])
-    erp = parse_pct_input(state["equity_risk_premium"])
-    sp = parse_pct_input(state["size_premium"])
-    csrp = parse_pct_input(state["csrp"])
+    erp = parse_premium_input(state["equity_risk_premium"])
+    sp = parse_premium_input(state["size_premium"])
+    csrp = parse_premium_input(state["csrp"])
     ke_parts = cost_of_equity(rf, be, erp, sp, csrp)
 
     pretax_kd = pretax_cost_of_debt(fred_rows, state["pretax_debt_series"])
