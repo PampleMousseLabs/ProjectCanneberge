@@ -6,6 +6,81 @@ from Canneberge import config
 from Canneberge.Sources.yfinance_live import YFinanceLiveClient
 
 
+SOURCE_STATUS_LABELS = {
+    "stockanalysis": "StockAnalysis",
+    "marketscreener": "MarketScreener",
+    "fred": "FRED",
+    "beta_vol": "Beta/Vol",
+}
+
+
+def count_source_rows(source: str, results) -> int:
+    """Count rows/items for status summaries, shared by desktop + web."""
+    if not results:
+        return 0
+
+    if source == "stockanalysis" and isinstance(results, dict):
+        return sum(
+            len(rows)
+            for rows in results.values()
+            if isinstance(rows, list)
+        )
+
+    if isinstance(results, list):
+        return len(results)
+
+    if isinstance(results, dict):
+        return len(results)
+
+    return 0
+
+
+def _source_unit(source: str, count: int) -> str:
+    if source == "fred":
+        return "series" if count != 1 else "series"
+    if source == "beta_vol":
+        return "tickers" if count != 1 else "ticker"
+    return "rows" if count != 1 else "row"
+
+
+def format_source_complete(source: str, results) -> str:
+    label = SOURCE_STATUS_LABELS.get(source, source)
+    count = count_source_rows(source, results)
+    return f"✅ {label} complete — {count:,} {_source_unit(source, count)}"
+
+
+def format_refresh_summary(results_by_source: dict, sources=None) -> str:
+    """Final Refresh All summary."""
+    sources = list(sources or SOURCE_STATUS_LABELS.keys())
+    parts = []
+    for source in sources:
+        label = SOURCE_STATUS_LABELS.get(source, source)
+        results = (results_by_source or {}).get(source)
+        count = count_source_rows(source, results)
+        if count:
+            parts.append(f"{label} {count:,} {_source_unit(source, count)}")
+        else:
+            parts.append(f"{label} no data")
+    return "✅ Refresh complete — " + " • ".join(parts)
+
+
+def format_live_marks_summary(live_results: dict) -> str:
+    meta = (live_results or {}).get("_live_marks_summary") or {}
+    patched = meta.get("patched_count")
+    fred_count = meta.get("fred_count")
+
+    parts = []
+    if patched is not None:
+        parts.append(f"{patched:,} market entries updated")
+    if fred_count is not None:
+        parts.append(f"FRED {fred_count:,} series refreshed")
+
+    if not parts:
+        return "⚡ Live Marks complete"
+
+    return "⚡ Live Marks complete — " + " • ".join(parts)
+
+
 class SourceDataService:
     def __init__(self, project_inputs, progress_callback=None):
         self.project_inputs = project_inputs
@@ -221,4 +296,8 @@ class SourceDataService:
         return {
             "stockanalysis": sa_results,
             "fred": fred_results,
+            "_live_marks_summary": {
+                "patched_count": patched_count,
+                "fred_count": len(fred_results or []),
+            },
         }

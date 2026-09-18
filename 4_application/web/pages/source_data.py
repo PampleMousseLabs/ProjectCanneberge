@@ -4,7 +4,12 @@ from dash import html, dcc, Input, Output, State, callback, dash_table, ctx
 import pandas as pd
 import json
 
-from Canneberge.Services.source_data_service import SourceDataService
+from Canneberge.Services.source_data_service import (
+    SourceDataService,
+    format_source_complete,
+    format_refresh_summary,
+    format_live_marks_summary,
+)
 from Canneberge.app_state import ProjectInputs, Transaction
 from web.lib.ui_layout import (
     grid_table_style,
@@ -294,8 +299,12 @@ def execute_source_refresh(set_progress, btn_all, btn_live, btn_sa, btn_ms, btn_
             service = SourceDataService(project_inputs=project_inputs, progress_callback=logger)
             results_acc["beta_vol"] = service.refresh_beta_vol(vol_term=float(vol_term or 3.0))
             
-            set_progress((100, 100, "✅ All sources harvested!"))
-            status_alert = dbc.Alert("✅ All sources refreshed successfully!", color="success", dismissable=True)
+            summary = format_refresh_summary(
+                results_acc,
+                ["stockanalysis", "marketscreener", "fred", "beta_vol"],
+            )
+            set_progress((100, 100, summary))
+            status_alert = dbc.Alert(summary, color="success", dismissable=True)
 
         elif triggered_id == "btn-refresh-live-marks":
             set_progress((10, 100, "Updating live market marks via yfinance..."))
@@ -306,32 +315,49 @@ def execute_source_refresh(set_progress, btn_all, btn_live, btn_sa, btn_ms, btn_
             results_acc["stockanalysis"] = live_out.get("stockanalysis", existing_sa)
             results_acc["fred"] = live_out.get("fred", results_acc.get("fred", []))
             
-            set_progress((100, 100, "⚡ Marks & FRED rates updated!"))
-            status_alert = dbc.Alert("⚡ Live Market Marks & FRED rates updated successfully!", color="success", dismissable=True)
+            summary = format_live_marks_summary(live_out)
+            set_progress((100, 100, summary))
+            status_alert = dbc.Alert(summary, color="success", dismissable=True)
 
         elif triggered_id == "btn-ref-sa":
             logger = create_progress_logger(0, 1, "Scraping StockAnalysis")
             service = SourceDataService(project_inputs=project_inputs, progress_callback=logger)
             results_acc["stockanalysis"] = service.refresh_stockanalysis()
-            status_alert = dbc.Alert("✅ StockAnalysis financials refreshed!", color="success", dismissable=True)
+            status_alert = dbc.Alert(
+                format_source_complete("stockanalysis", results_acc["stockanalysis"]),
+                color="success",
+                dismissable=True,
+            )
 
         elif triggered_id == "btn-ref-ms":
             logger = create_progress_logger(0, 1, "Scraping MarketScreener")
             service = SourceDataService(project_inputs=project_inputs, progress_callback=logger)
             results_acc["marketscreener"] = service.refresh_marketscreener()
-            status_alert = dbc.Alert("✅ MarketScreener estimates refreshed!", color="success", dismissable=True)
+            status_alert = dbc.Alert(
+                format_source_complete("marketscreener", results_acc["marketscreener"]),
+                color="success",
+                dismissable=True,
+            )
 
         elif triggered_id == "btn-ref-fred":
             logger = create_progress_logger(0, 1, "Fetching FRED")
             service = SourceDataService(project_inputs=project_inputs, progress_callback=logger)
             results_acc["fred"] = service.refresh_fred()
-            status_alert = dbc.Alert("✅ FRED macroeconomic rates refreshed!", color="success", dismissable=True)
+            status_alert = dbc.Alert(
+                format_source_complete("fred", results_acc["fred"]),
+                color="success",
+                dismissable=True,
+            )
 
         elif triggered_id == "btn-ref-bv":
             logger = create_progress_logger(0, 1, "Computing Beta/Vol")
             service = SourceDataService(project_inputs=project_inputs, progress_callback=logger)
             results_acc["beta_vol"] = service.refresh_beta_vol(vol_term=float(vol_term or 3.0))
-            status_alert = dbc.Alert("✅ Beta & Volatility metrics computed!", color="success", dismissable=True)
+            status_alert = dbc.Alert(
+                format_source_complete("beta_vol", results_acc["beta_vol"]),
+                color="success",
+                dismissable=True,
+            )
 
         else:
             return dash.no_update, dash.no_update

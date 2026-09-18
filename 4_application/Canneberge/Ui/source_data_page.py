@@ -14,6 +14,12 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal
 
 from Canneberge.Workers.source_data_worker import SourceDataWorker
+from Canneberge.Services.source_data_service import (
+    count_source_rows,
+    format_source_complete,
+    format_refresh_summary,
+    format_live_marks_summary,
+)
 from Canneberge.Ui.theme import theme_manager
 
 
@@ -197,29 +203,16 @@ class SourceDataPage(QWidget):
         worker.start()
 
     def _on_live_marks_results(self, source, results):
-        from PyQt6.QtWidgets import QMessageBox
-        from PyQt6.QtCore import QTimer
-
         if "stockanalysis" in results:
             self.all_results["stockanalysis"] = results["stockanalysis"]
         if "fred" in results:
             self.all_results["fred"] = results["fred"]
+
         self._redraw()
-        self.status_label.setText("Live market marks updated successfully.")
+        self.status_label.setText(format_live_marks_summary(results))
+
         # Recalc dependent pages (WACC / GPC / DCF / etc.)
         self.all_sources_finished.emit()
-
-        # Confirmation after worker teardown so it isn't suppressed
-        QTimer.singleShot(
-            0,
-            lambda: QMessageBox.information(
-                self,
-                "Live Marks Complete",
-                "Live market marks updated.\n\n"
-                "Market Cap, Enterprise Value, Last Close, and FRED rates "
-                "were refreshed. Fundamentals (IS / BS / CFS) were left unchanged.",
-            ),
-        )
 
     def _on_refresh_clicked(self, source):
         worker = self.workers.get(source)
@@ -284,10 +277,7 @@ class SourceDataPage(QWidget):
         self.all_results[source] = results
         if source == self.current_source:
             self._redraw()
-        row_count = self._count_rows(source, results)
-        self.status_label.setText(
-            f"{self.SOURCE_LABELS[source]} complete. {row_count} rows."
-        )
+        self.status_label.setText(format_source_complete(source, results))
 
     def _on_finished(self, source):
         self.refresh_buttons[source].setEnabled(True)
@@ -299,12 +289,13 @@ class SourceDataPage(QWidget):
                 f"{self.SOURCE_LABELS[source]} complete."
             )
             if not self._pending_batch_sources:
+                self.status_label.setText(
+                    format_refresh_summary(self.all_results, self.SOURCES)
+                )
                 self.all_sources_finished.emit()
 
     def _count_rows(self, source, results):
-        if source == "stockanalysis":
-            return sum(len(rows) for rows in results.values())
-        return len(results) if results else 0
+        return count_source_rows(source, results)
 
     def _redraw(self):
         source = self.current_source
