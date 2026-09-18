@@ -1,24 +1,13 @@
 # Open Issues Audit: PampleMousseLabs/ProjectCanneberge
 
-## #36: web app general
+## #38: Native Mode
 - **State:** open
-- **URL:** https://github.com/PampleMousseLabs/ProjectCanneberge/issues/36
+- **URL:** https://github.com/PampleMousseLabs/ProjectCanneberge/issues/38
 
 ### Description
-Make the header label (Home, Dashboard, WACC, DCF, NWC, Debt schedule, GT, GPC, etc) static so when scrolling the page its still there (for nav, save, open, etc). 
+lets completely get rid of the native Mode button. The iPhone, droid apps are doing web APK fine no need for it anymore. 
 
----
-
-## #33: y finance / Stock analysis/marketscreener
-- **State:** open
-- **URL:** https://github.com/PampleMousseLabs/ProjectCanneberge/issues/33
-
-### Description
-can any of these handle non-us lookups?
-
-EuronextParis: MC
-KRX: 005930
-
+The chrome browser F11 works fine, no need for native mode
 
 ---
 
@@ -180,17 +169,6 @@ I will make a precise conversion with these constraints:
 7. Tab performs one blur recalculation while focus remains in the next field.
 
 Once that behavior is verified in the browser, we can apply the same pattern to GPC, NWC, and DCF instead of gambling on a global JavaScript patch or an unsuitable DataTable conversion.
-
----
-
-## #30: web app DCF page
-- **State:** open
-- **URL:** https://github.com/PampleMousseLabs/ProjectCanneberge/issues/30
-
-### Description
-sensitivity table doesnt update based on projection toggles and +/- don't change when toggled to other basis of value. 
-
-APP WIDE - Generally speaking, things aren't auto calculating 1. fast, or 2. at all 
 
 ---
 

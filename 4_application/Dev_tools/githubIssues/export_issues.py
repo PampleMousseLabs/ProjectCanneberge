@@ -1,6 +1,6 @@
 """
 export_issues.py
-Usage: penguin: cd ~/PampleMousseLabs/ProjectCanneberge/4_application python export_issues.py PampleMousseLabs ProjectCanneberge
+Usage:  python Dev_tools/githubIssues/export_issues.py PampleMousseLabs ProjectCanneberge
 """
 import sys
 import json

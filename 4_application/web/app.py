@@ -112,7 +112,7 @@ navbar = dbc.Navbar(
     ),
     color="primary",
     dark=True,
-    className="mb-3",
+    className="mb-3 app-sticky-navbar",
 )
 
 dummy_div = html.Div(id="dummy-output", style={"display": "none"})

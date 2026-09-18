@@ -39,3 +39,26 @@
 .model-control-strip label {
     font-size: 0.78rem;
 }
+
+
+/* Global sticky web/PWA navbar.
+   Keeps Home/Dashboard/etc + Project menu visible while scrolling pages. */
+.app-sticky-navbar {
+    position: sticky;
+    top: 0;
+    z-index: 1040;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+/* Mobile/PWA safe-area guard. Has no effect on normal desktop Chrome,
+   but helps on fullscreen mobile shells with notches/status areas. */
+@supports (padding-top: env(safe-area-inset-top)) {
+    .app-sticky-navbar {
+        top: env(safe-area-inset-top);
+    }
+}
+
+/* Anchor/scroll targeting should not hide content under the sticky nav. */
+html {
+    scroll-padding-top: 76px;
+}
