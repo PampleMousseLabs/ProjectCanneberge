@@ -1,3 +1,4 @@
+import os
 import dash
 from pathlib import Path
 from datetime import datetime
@@ -394,4 +395,4 @@ def on_new_session(n_clicks):
 if __name__ == "__main__":
     print("🚀 Canneberge Web Server starting on http://127.0.0.1:8050")
     print("🔒 Tailscale HTTPS: https://penguin.tail7ee5e4.ts.net")
-    app.run(host="127.0.0.1", port=8050, debug=True)
+    app.run(host="127.0.0.1", port=8050, debug=os.environ.get("CANNEBERGE_DEBUG", "1") == "1")
